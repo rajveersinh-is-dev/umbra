@@ -12,10 +12,11 @@ Measures:
 """
 
 import time
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 from sklearn.linear_model import LinearRegression
 
 from benchmarks.dgps import SimulationDataset, generate_simulation_dataset
@@ -47,14 +48,88 @@ class MeanImputerBaseline:
         return out
 
 
+def _rubin_pool_mean_ci(
+    means: List[float], within_vars: List[float], n_obs: int
+) -> Tuple[float, float, Tuple[float, float], Tuple[float, float], Tuple[float, float]]:
+    """Compute Rubin (1987) pooled mean and confidence intervals with Barnard-Rubin (1999) df."""
+    M = len(means)
+    q_bar = float(np.mean(means))
+    u_bar = float(np.mean(within_vars))
+    if M > 1:
+        B = float(np.var(means, ddof=1))
+        T = u_bar + (1.0 + 1.0 / M) * B
+        r = ((1.0 + 1.0 / M) * B) / max(1e-12, u_bar)
+        nu_rubin = (M - 1) * (1.0 + 1.0 / r) ** 2 if r > 1e-12 else 1e6
+        nu_com = max(1, n_obs - 1)
+        lambda_hat = ((1.0 + 1.0 / M) * B) / max(1e-12, T)
+        nu_obs = ((nu_com + 1) / (nu_com + 3)) * nu_com * (1.0 - lambda_hat)
+        nu = (nu_rubin * nu_obs) / max(1e-6, nu_rubin + nu_obs)
+        nu = max(1.0, nu)
+    else:
+        T = u_bar
+        nu = max(1.0, float(n_obs - 1))
+
+    se = float(np.sqrt(max(1e-12, T)))
+    t_80 = float(stats.t.ppf(0.90, df=nu))
+    t_90 = float(stats.t.ppf(0.95, df=nu))
+    t_95 = float(stats.t.ppf(0.975, df=nu))
+
+    ci_80 = (q_bar - t_80 * se, q_bar + t_80 * se)
+    ci_90 = (q_bar - t_90 * se, q_bar + t_90 * se)
+    ci_95 = (q_bar - t_95 * se, q_bar + t_95 * se)
+    return q_bar, se, ci_80, ci_90, ci_95
+
+
+def _rubin_pool_regression(
+    betas: List[np.ndarray], cov_betas: List[np.ndarray], n_obs: int, n_pred: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute Rubin (1987) pooled regression coefficients and SEs with Barnard-Rubin df."""
+    M = len(betas)
+    beta_mat = np.array(betas)  # shape (M, k)
+    q_bar = np.mean(beta_mat, axis=0)
+    u_bar = np.mean(np.array(cov_betas), axis=0)  # shape (k, k)
+
+    if M > 1:
+        B = np.cov(beta_mat, rowvar=False, ddof=1)
+        if B.ndim == 0:
+            B = np.array([[float(B)]])
+        T_diag = np.diag(u_bar) + (1.0 + 1.0 / M) * np.diag(B)
+        se = np.sqrt(np.maximum(1e-12, T_diag))
+        nu_com = max(1, n_obs - n_pred - 1)
+        t_crits = []
+        for j in range(len(q_bar)):
+            uj = max(1e-12, u_bar[j, j])
+            bj = max(0.0, B[j, j])
+            r = ((1.0 + 1.0 / M) * bj) / uj
+            nu_rubin = (M - 1) * (1.0 + 1.0 / r) ** 2 if r > 1e-12 else 1e6
+            lambda_hat = ((1.0 + 1.0 / M) * bj) / max(1e-12, T_diag[j])
+            nu_obs = ((nu_com + 1) / (nu_com + 3)) * nu_com * (1.0 - lambda_hat)
+            nu_j = (nu_rubin * nu_obs) / max(1e-6, nu_rubin + nu_obs)
+            nu_j = max(1.0, nu_j)
+            t_crits.append(float(stats.t.ppf(0.975, df=nu_j)))
+        t_crit = np.array(t_crits)
+    else:
+        se = np.sqrt(np.maximum(1e-12, np.diag(u_bar)))
+        nu_com = max(1, n_obs - n_pred - 1)
+        t_crit = np.full(len(q_bar), float(stats.t.ppf(0.975, df=nu_com)))
+
+    return q_bar, se, t_crit
+
+
 def evaluate_imputer_replication(
     imputer_factory: Callable[[], Any],
     sim_data: SimulationDataset,
     rep_idx: int,
     true_beta_age: float = 0.5,
     true_beta_edu: float = 0.8,
+    n_imputations: int = 1,
 ) -> ReplicationResult:
-    """Execute and evaluate a single Monte Carlo replication."""
+    """Execute and evaluate a single Monte Carlo replication.
+
+    Supports single-imputation plug-in evaluation (n_imputations=1) and
+    Rubin (1987) multiple imputation pooling with Barnard-Rubin (1999)
+    degrees of freedom (n_imputations > 1).
+    """
     t0 = time.perf_counter()
     df_obs = sim_data.data_observed.copy()
     df_true = sim_data.data_complete.copy()
@@ -86,7 +161,6 @@ def evaluate_imputer_replication(
             ci_90 = (cc_mean - 1.645 * cc_se, cc_mean + 1.645 * cc_se)
             ci_95 = (cc_mean - 1.960 * cc_se, cc_mean + 1.960 * cc_se)
 
-            # Complete case doesn't impute missing cells, so cell metrics are based on mean
             return ReplicationResult(
                 rep_idx=rep_idx,
                 imputed_mean=cc_mean,
@@ -107,58 +181,97 @@ def evaluate_imputer_replication(
                 converged=True,
             )
 
-        # Standard transformer imputer
-        df_imp = imputer.fit_transform(df_obs)
+        # Imputation draws
+        if n_imputations > 1:
+            if hasattr(imputer, "fit_transform_multiple"):
+                dfs_imp = imputer.fit_transform_multiple(df_obs)
+            elif hasattr(imputer, "transform"):
+                imputer.fit(df_obs)
+                try:
+                    dfs_imp = imputer.transform(df_obs, return_all_imputations=True)
+                except TypeError:
+                    dfs_imp = [imputer.transform(df_obs)]
+            else:
+                dfs_imp = [imputer.fit_transform(df_obs)]
+        else:
+            dfs_imp = [imputer.fit_transform(df_obs)]
         runtime = time.perf_counter() - t0
 
-        if isinstance(df_imp, np.ndarray):
-            col_idx = list(df_obs.columns).index(target)
-            y_imp_all = df_imp[:, col_idx]
-        else:
-            y_imp_all = df_imp[target].to_numpy()
+        n_total_obs = len(df_obs)
+        all_means: List[float] = []
+        all_within_vars: List[float] = []
+        all_cell_means: List[float] = []
+        all_cell_rmses: List[float] = []
+        all_cell_maes: List[float] = []
+        all_betas: List[np.ndarray] = []
+        all_cov_betas: List[np.ndarray] = []
 
-        y_imp_mis = y_imp_all[mask]
+        for df_imp in dfs_imp:
+            if isinstance(df_imp, np.ndarray):
+                col_idx = list(df_obs.columns).index(target)
+                y_imp_all = df_imp[:, col_idx]
+            else:
+                y_imp_all = df_imp[target].to_numpy()
 
-        imp_mean = float(np.mean(y_imp_all))
-        imp_cell_mean = float(np.mean(y_imp_mis)) if n_mis > 0 else imp_mean
+            y_imp_mis = y_imp_all[mask]
+
+            m_k = float(np.mean(y_imp_all))
+            v_k = float(np.var(y_imp_all, ddof=1) / n_total_obs)
+            cm_k = float(np.mean(y_imp_mis)) if n_mis > 0 else m_k
+            rmse_k = float(np.sqrt(np.mean((y_imp_mis - y_true_mis) ** 2))) if n_mis > 0 else 0.0
+            mae_k = float(np.mean(np.abs(y_imp_mis - y_true_mis))) if n_mis > 0 else 0.0
+
+            all_means.append(m_k)
+            all_within_vars.append(v_k)
+            all_cell_means.append(cm_k)
+            all_cell_rmses.append(rmse_k)
+            all_cell_maes.append(mae_k)
+
+            # Downstream regression
+            if isinstance(df_imp, pd.DataFrame):
+                X_reg = df_imp[["age", "education"]].to_numpy()
+            else:
+                age_idx = list(df_obs.columns).index("age")
+                edu_idx = list(df_obs.columns).index("education")
+                X_reg = df_imp[:, [age_idx, edu_idx]]
+
+            reg = LinearRegression().fit(X_reg, y_imp_all)
+            b_vec = np.array([float(reg.coef_[0]), float(reg.coef_[1])])
+            residuals = y_imp_all - reg.predict(X_reg)
+            s_err = np.sqrt(np.sum(residuals**2) / max(1, n_total_obs - 3))
+            X_design = np.column_stack([np.ones(n_total_obs), X_reg])
+            try:
+                cov_b = s_err**2 * np.linalg.inv(X_design.T @ X_design)
+                cov_sub = cov_b[1:3, 1:3]
+            except Exception:
+                cov_sub = np.eye(2) * 0.0025
+
+            all_betas.append(b_vec)
+            all_cov_betas.append(cov_sub)
+
+        # Rubin pooled mean and confidence intervals
+        imp_mean, imp_se, ci_80, ci_90, ci_95 = _rubin_pool_mean_ci(
+            all_means, all_within_vars, n_total_obs
+        )
+        imp_cell_mean = float(np.mean(all_cell_means))
+        cell_rmse = float(np.mean(all_cell_rmses))
+        cell_mae = float(np.mean(all_cell_maes))
 
         mean_bias = imp_mean - true_mean
         cell_bias = imp_cell_mean - float(np.mean(y_true_mis)) if n_mis > 0 else 0.0
-        cell_rmse = float(np.sqrt(np.mean((y_imp_mis - y_true_mis) ** 2))) if n_mis > 0 else 0.0
-        cell_mae = float(np.mean(np.abs(y_imp_mis - y_true_mis))) if n_mis > 0 else 0.0
 
-        # Variance of sample mean
-        imp_se = float(np.std(y_imp_all, ddof=1) / np.sqrt(len(y_imp_all)))
-        ci_80 = (imp_mean - 1.282 * imp_se, imp_mean + 1.282 * imp_se)
-        ci_90 = (imp_mean - 1.645 * imp_se, imp_mean + 1.645 * imp_se)
-        ci_95 = (imp_mean - 1.960 * imp_se, imp_mean + 1.960 * imp_se)
-
-        # Downstream regression
-        if isinstance(df_imp, pd.DataFrame):
-            X_reg = df_imp[["age", "education"]].to_numpy()
-        else:
-            age_idx = list(df_obs.columns).index("age")
-            edu_idx = list(df_obs.columns).index("education")
-            X_reg = df_imp[:, [age_idx, edu_idx]]
-
-        reg = LinearRegression().fit(X_reg, y_imp_all)
-        b_age = float(reg.coef_[0])
-        b_edu = float(reg.coef_[1])
-
-        # Regression SE estimation
-        n = len(y_imp_all)
-        residuals = y_imp_all - reg.predict(X_reg)
-        s_err = np.sqrt(np.sum(residuals**2) / max(1, n - 3))
-        X_design = np.column_stack([np.ones(n), X_reg])
-        try:
-            cov_beta = s_err**2 * np.linalg.inv(X_design.T @ X_design)
-            se_age = float(np.sqrt(cov_beta[1, 1]))
-            se_edu = float(np.sqrt(cov_beta[2, 2]))
-        except Exception:
-            se_age, se_edu = 0.05, 0.05
-
-        b_age_cov = bool(b_age - 1.96 * se_age <= true_beta_age <= b_age + 1.96 * se_age)
-        b_edu_cov = bool(b_edu - 1.96 * se_edu <= true_beta_edu <= b_edu + 1.96 * se_edu)
+        # Rubin pooled regression
+        pooled_beta, se_beta, t_crit_beta = _rubin_pool_regression(
+            all_betas, all_cov_betas, n_total_obs, n_pred=2
+        )
+        b_age = float(pooled_beta[0])
+        b_edu = float(pooled_beta[1])
+        b_age_cov = bool(
+            b_age - t_crit_beta[0] * se_beta[0] <= true_beta_age <= b_age + t_crit_beta[0] * se_beta[0]
+        )
+        b_edu_cov = bool(
+            b_edu - t_crit_beta[1] * se_beta[1] <= true_beta_edu <= b_edu + t_crit_beta[1] * se_beta[1]
+        )
 
         return ReplicationResult(
             rep_idx=rep_idx,
@@ -211,12 +324,18 @@ def run_monte_carlo_regime(
     missing_rate: float = 0.30,
     severity: str = "medium",
     base_seed: int = 42,
+    n_imputations: int = 1,
 ) -> List[MonteCarloSummary]:
     """Execute Monte Carlo simulation across multiple imputers on one regime."""
     results: List[MonteCarloSummary] = []
 
+    cov_protocol = (
+        f"Multiple-Imputation (M={n_imputations}, Rubin 1987)"
+        if n_imputations > 1
+        else "Single-Imputation (Plug-in)"
+    )
     print(
-        f"\n--- Monte Carlo: {regime} (N={n_samples}, Missing={missing_rate:.0%}, R={n_replications}) ---"
+        f"\n--- Monte Carlo: {regime} (N={n_samples}, Missing={missing_rate:.0%}, R={n_replications}, Coverage={cov_protocol}) ---"
     )
 
     for method_name, factory in imputer_factories.items():
@@ -230,7 +349,9 @@ def run_monte_carlo_regime(
                 severity=severity,
                 random_state=seed,
             )
-            res = evaluate_imputer_replication(factory, sim_data, rep_idx=rep)
+            res = evaluate_imputer_replication(
+                factory, sim_data, rep_idx=rep, n_imputations=n_imputations
+            )
             replications.append(res)
 
         summary = aggregate_replications(

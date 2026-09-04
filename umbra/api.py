@@ -10,7 +10,7 @@ Also exposes the standalone `diagnose(X)` function returning an
 """
 
 import warnings
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -292,6 +292,36 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
     ):
         """Fit and transform in a single call."""
         return self.fit(X, y).transform(X, return_diagnostics=return_diagnostics)
+
+    def fit_transform_multiple(self, X: Union[pd.DataFrame, np.ndarray]) -> List[pd.DataFrame]:
+        """Fit UmbraImputer and return all M stochastic multiple imputations."""
+        self.fit(X)
+        df_base = self._to_dataframe(X).copy()
+        n_m = max(1, self.n_imputations)
+        if n_m == 1:
+            res = self.transform(df_base)
+            return [res if isinstance(res, pd.DataFrame) else pd.DataFrame(res, columns=df_base.columns)]
+
+        sub_m = {}
+        for key, imp in self.imputers_.items():
+            if hasattr(imp, "transform"):
+                try:
+                    sub_m[key] = imp.transform(df_base, return_all_imputations=True)
+                except Exception:
+                    sub_m[key] = [imp.transform(df_base)] * n_m
+
+        imputed_dfs = []
+        for i in range(n_m):
+            df_i = df_base.copy()
+            for key, dfs in sub_m.items():
+                imp_frame = dfs[i % len(dfs)]
+                if isinstance(imp_frame, np.ndarray):
+                    imp_frame = pd.DataFrame(imp_frame, columns=df_base.columns)
+                for col in self.routing_decisions_:
+                    if col in imp_frame.columns and imp_frame[col].notna().all():
+                        df_i[col] = imp_frame[col]
+            imputed_dfs.append(df_i)
+        return imputed_dfs
 
     def explain(self):
         """Print rich diagnostic and sensitivity report to terminal."""

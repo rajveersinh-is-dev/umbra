@@ -82,3 +82,43 @@ def test_multiple_draws_imputers():
     draws_heck = heck.fit_transform_multiple(df)
     assert len(draws_heck) == 5
     assert all(not d.isna().any().any() for d in draws_heck)
+
+
+def test_heckman_rubin_pooled_ci_wider_than_single_plug_in():
+    """Verify that Rubin-pooled 95% CI is strictly wider than single-imputation plug-in CI."""
+    from benchmarks.dgps import generate_simulation_dataset
+    from benchmarks.simulation_runner import evaluate_imputer_replication
+
+    sim_data = generate_simulation_dataset(
+        "MNAR_SELECTION", n_samples=500, missing_rate=0.30, random_state=42
+    )
+
+    res_single = evaluate_imputer_replication(
+        lambda: HeckmanSelectionImputer(
+            shadow_cols={"income": "shadow_z"},
+            n_imputations=1,
+            n_bootstrap_se=0,
+            random_state=42,
+        ),
+        sim_data,
+        rep_idx=0,
+        n_imputations=1,
+    )
+
+    res_multiple = evaluate_imputer_replication(
+        lambda: HeckmanSelectionImputer(
+            shadow_cols={"income": "shadow_z"},
+            n_imputations=5,
+            stochastic=True,
+            n_bootstrap_se=0,
+            random_state=42,
+        ),
+        sim_data,
+        rep_idx=0,
+        n_imputations=5,
+    )
+
+    assert res_multiple.ci_width_95 > res_single.ci_width_95, (
+        f"Expected Rubin pooled CI width ({res_multiple.ci_width_95:.4f}) > "
+        f"single plug-in width ({res_single.ci_width_95:.4f})"
+    )
