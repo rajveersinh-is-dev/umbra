@@ -75,6 +75,10 @@ jobs:
       run: |
         python scripts/reproduce_benchmarks.py --quick
 
+    - name: Prepare Empirical Benchmark Datasets
+      run: |
+        python scripts/prepare_empirical_datasets.py
+
     - name: Run Case Studies Smoke Test
       run: |
         python scripts/reproduce_case_studies.py

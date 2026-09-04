@@ -52,6 +52,12 @@ def run_case_study(
     comp_file = data_dir / f"{name}_complete.csv"
 
     if not obs_file.exists() or not comp_file.exists():
+        print(f"Data files for '{name}' not found in {data_dir}. Generating benchmark datasets...")
+        from scripts.prepare_empirical_datasets import run_all_preparations
+
+        run_all_preparations()
+
+    if not obs_file.exists() or not comp_file.exists():
         raise FileNotFoundError(f"Missing processed data for {name} in {data_dir}")
 
     df_obs = pd.read_csv(obs_file)

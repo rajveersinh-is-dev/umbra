@@ -3,8 +3,14 @@ Run comprehensive benchmark suite across missingness regimes and imputers.
 Outputs regenerated results to `benchmarks/results.md`.
 """
 
+import sys
 from pathlib import Path
 from typing import Dict
+
+# Add project root to path
+root_dir = Path(__file__).resolve().parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
 
 import numpy as np
 import pandas as pd
