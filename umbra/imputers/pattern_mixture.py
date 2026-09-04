@@ -92,7 +92,11 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         targets = self.target_cols or [c for c in df.columns if df[c].isna().any()]
 
         for target in targets:
-            if target not in df.columns or not df[target].isna().any():
+            if (
+                target not in df.columns
+                or not df[target].isna().any()
+                or not pd.api.types.is_numeric_dtype(df[target])
+            ):
                 continue
 
             obs_mask = df[target].notna()

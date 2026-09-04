@@ -308,6 +308,14 @@ def find_shadow_variables(
             warning="Target variable has no missing values.",
         )
 
+    if not pd.api.types.is_numeric_dtype(data[target_column]):
+        return AuxiliaryVariableReport(
+            target_column=target_column,
+            candidates=[],
+            best_candidate=None,
+            warning=f"Target variable '{target_column}' is non-numeric. Auxiliary screening requires numeric targets.",
+        )
+
     obs_mask = data[target_column].notna()
     y_obs = data.loc[obs_mask, target_column].to_numpy(dtype=float)
 

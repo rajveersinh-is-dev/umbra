@@ -186,14 +186,14 @@ def _evaluate_residual_tail_dependency(
     is_missing = data[target_col].isna()
     obs_mask = ~is_missing
 
-    if obs_mask.sum() < 20 or is_missing.sum() < 10 or not covariate_cols:
+    if not pd.api.types.is_numeric_dtype(data[target_col]):
+        return 0.0, 0.0, {"status": "non_numeric_target"}
+
+    num_covars = [c for c in covariate_cols if pd.api.types.is_numeric_dtype(data[c])]
+    if obs_mask.sum() < 20 or is_missing.sum() < 10 or not num_covars:
         return 0.0, 0.0, {"status": "insufficient_samples"}
 
-    X_obs = (
-        data.loc[obs_mask, covariate_cols]
-        .fillna(data[covariate_cols].median())
-        .to_numpy(dtype=float)
-    )
+    X_obs = data.loc[obs_mask, num_covars].fillna(data[num_covars].median()).to_numpy(dtype=float)
     y_obs = data.loc[obs_mask, target_col].to_numpy(dtype=float)
 
     # Check for constant variance in predictors

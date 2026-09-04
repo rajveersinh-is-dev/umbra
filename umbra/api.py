@@ -101,6 +101,15 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
             self.is_fitted_ = True
             return self
 
+        non_numeric_incomplete = [
+            c for c in incomplete_cols if not pd.api.types.is_numeric_dtype(df[c])
+        ]
+        if non_numeric_incomplete:
+            raise TypeError(
+                f"UmbraImputer requires incomplete features to be numeric. Found non-numeric column(s): {non_numeric_incomplete}. "
+                "Please encode categorical variables (e.g. using OrdinalEncoder, OneHotEncoder, or pd.get_dummies) before imputing."
+            )
+
         # 1. Run empirical diagnostics
         self.diagnostics_ = diagnose_dataframe(df)
 

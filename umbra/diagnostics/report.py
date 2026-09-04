@@ -414,7 +414,7 @@ def diagnose(
     sensitivity_reports: Dict[str, SensitivityReport] = {}
     if run_sensitivity:
         for col, rep in mnar_reports.items():
-            if rep.risk_level in ("MEDIUM", "HIGH"):
+            if rep.risk_level in ("MEDIUM", "HIGH") and pd.api.types.is_numeric_dtype(df[col]):
                 sens = run_sensitivity_grid(df, target_column=col, random_state=random_state)
                 sensitivity_reports[col] = sens
 

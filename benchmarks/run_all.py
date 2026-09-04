@@ -23,7 +23,7 @@ import pandas as pd
 
 from benchmarks.metrics import MonteCarloSummary
 from benchmarks.performance_scaling import benchmark_runtime_vs_dimension, benchmark_runtime_vs_n
-from benchmarks.router_benchmark import benchmark_auto_router
+from benchmarks.router_benchmark import benchmark_auto_router, compare_router_against_baselines
 from benchmarks.simulation_runner import get_standard_imputer_suite, run_monte_carlo_regime
 from umbra import __version__ as umbra_ver
 
@@ -33,7 +33,7 @@ def run_full_benchmark_suite(
     n_samples: int = 2500,
     missing_rate: float = 0.30,
     base_seed: int = 42,
-) -> Tuple[List[MonteCarloSummary], Any, pd.DataFrame, pd.DataFrame]:
+) -> Tuple[List[MonteCarloSummary], Any, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     print("=" * 70)
     print("UMBRA RIGOROUS EMPIRICAL BENCHMARK SUITE")
     print(f"Software Version: Umbra v{umbra_ver} | Python: {sys.version.split()[0]}")
@@ -78,7 +78,16 @@ def run_full_benchmark_suite(
         base_seed=base_seed,
     )
 
-    # 3. Performance Scaling Benchmarks
+    # 3. Router Policy vs Fixed Baselines (Always MICE, Always Heckman, Oracle Route)
+    print("\nEvaluating Auto Router policy vs fixed baseline strategies...")
+    df_router_vs_baselines = compare_router_against_baselines(
+        n_replications=5,
+        n_samples=1500,
+        missing_rate=missing_rate,
+        base_seed=base_seed,
+    )
+
+    # 4. Performance Scaling Benchmarks
     print("\nMeasuring runtime scaling as a function of sample size N...")
     df_scaling_n = benchmark_runtime_vs_n(
         sample_sizes=[500, 1000, 2500, 5000],
@@ -91,12 +100,13 @@ def run_full_benchmark_suite(
         random_state=base_seed,
     )
 
-    return all_summaries, router_res, df_scaling_n, df_scaling_p
+    return all_summaries, router_res, df_router_vs_baselines, df_scaling_n, df_scaling_p
 
 
 def format_markdown_leaderboard(
     summaries: List[MonteCarloSummary],
     router_summary: Any,
+    router_vs_baselines: pd.DataFrame,
     scaling_n: pd.DataFrame,
     scaling_p: pd.DataFrame,
     out_path: Path,
@@ -164,7 +174,15 @@ def format_markdown_leaderboard(
             "",
             "---",
             "",
-            "## 3. Runtime Scaling Benchmarks",
+            "## 3. Auto Router Policy vs Fixed Baseline Strategies",
+            "",
+            "Evaluates whether Umbra Auto provides an adaptive advantage over naive fixed policies (Always MICE, Always Heckman, Complete-Case) versus Oracle knowledge:",
+            "",
+            router_vs_baselines.to_markdown(index=False),
+            "",
+            "---",
+            "",
+            "## 4. Runtime Scaling Benchmarks",
             "",
             "### Scaling with Sample Size N (p=5, missingness=30%, runtime in seconds)",
             "",
@@ -176,7 +194,7 @@ def format_markdown_leaderboard(
             "",
             "---",
             "",
-            "## 4. Methodological Findings & Statistical Conclusions",
+            "## 5. Methodological Findings & Statistical Conclusions",
             "",
             "1. **Breakdown of Standard MAR Imputation under MNAR**:",
             "   - Under MCAR and MAR, standard MICE (PMM / Ridge) achieves unbiased point estimates and nominal ~95% coverage.",
@@ -202,10 +220,12 @@ if __name__ == "__main__":
     out_dir = Path(__file__).resolve().parent
     out_md = out_dir / "results.md"
 
-    summaries, router_res, scaling_n, scaling_p = run_full_benchmark_suite(
+    summaries, router_res, router_vs_baselines, scaling_n, scaling_p = run_full_benchmark_suite(
         n_replications=20,
         n_samples=2500,
         missing_rate=0.30,
         base_seed=42,
     )
-    format_markdown_leaderboard(summaries, router_res, scaling_n, scaling_p, out_md)
+    format_markdown_leaderboard(
+        summaries, router_res, router_vs_baselines, scaling_n, scaling_p, out_md
+    )

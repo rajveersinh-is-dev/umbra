@@ -202,6 +202,9 @@ def compare_router_against_baselines(
         "MCAR",
         "MAR",
         "MNAR_SELECTION",
+        "MNAR_PATTERN_MIXTURE",
+        "MNAR_WEAK_SIGNAL",
+        "MNAR_STRONG_SIGNAL",
         "MNAR_SELF_MASKING",
         "MNAR_TAILS",
     ]
@@ -251,8 +254,23 @@ def compare_router_against_baselines(
                     shadow_cols={sim.target_col: sim.shadow_col} if sim.shadow_col else None,
                     random_state=seed,
                 )
+            elif reg == "MNAR_PATTERN_MIXTURE":
+                true_delta = sim.true_params.get("delta", -0.8)
+                oracle_fn = lambda: PatternMixtureImputer(  # noqa: E731
+                    delta=true_delta, random_state=seed
+                )
+            elif reg in ["MNAR_SELF_MASKING", "MNAR_STRONG_SIGNAL"]:
+                # Under self-masking, the selection depends directly on unobserved Y
+                bias = sim.true_params.get("selection_bias", 0.0)
+                sigma = max(0.1, sim.true_params.get("sigma_eps", 1.0))
+                calibrated_delta = -bias / sigma
+                oracle_fn = lambda: PatternMixtureImputer(  # noqa: E731
+                    delta=calibrated_delta, random_state=seed
+                )
             else:
-                oracle_fn = lambda: PatternMixtureImputer(delta=0.0, random_state=seed)  # noqa: E731
+                oracle_fn = lambda: MARChainedEquationsImputer(  # noqa: E731
+                    imputation_method="pmm", random_state=seed
+                )
 
             res_oracle = evaluate_imputer_replication(oracle_fn, sim, rep_idx=rep)
 

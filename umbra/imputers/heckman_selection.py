@@ -31,6 +31,12 @@ from scipy import stats
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
+class WeakInstrumentWarning(UserWarning):
+    """Warning emitted when a candidate auxiliary instrument fails the Stock-Yogo relevance test (F <= 10)."""
+
+    pass
+
+
 def _compute_imr_observed(eta: np.ndarray) -> np.ndarray:
     """Compute Inverse Mills Ratio for observed cases (R=1):
     lambda_1(eta) = phi(eta) / Phi(eta) >= 0.
@@ -148,6 +154,20 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
             if shadow_var and shadow_var in covar_cols:
                 X_cols = [c for c in covar_cols if c != shadow_var]
                 W_cols = covar_cols.copy()
+                try:
+                    z_data = df[[shadow_var]].fillna(df[shadow_var].median()).to_numpy(dtype=float)
+                    z_mat = sm.add_constant(z_data, has_constant="add")
+                    ols_first = sm.OLS(R, z_mat).fit()
+                    f_stat = float(ols_first.fvalue)
+                    if f_stat <= 10.0:
+                        warnings.warn(
+                            f"Candidate auxiliary instrument '{shadow_var}' for target '{target}' has weak relevance "
+                            f"(first-stage F = {f_stat:.2f} <= 10.0, Stock-Yogo benchmark). Heckman selection estimates "
+                            "may suffer from variance inflation and numerical instability.",
+                            WeakInstrumentWarning,
+                        )
+                except Exception:
+                    pass
             else:
                 X_cols = covar_cols.copy()
                 W_cols = covar_cols.copy()
