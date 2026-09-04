@@ -1,73 +1,55 @@
-# Explicit Methodological Limitations & Failure Cases
+# Known Limitations and Open Problems
 
-A hallmark of mature research software is honesty about its boundaries. This document articulates where Umbra does **NOT** work, what assumptions are non-negotiable, and when users should seek alternative methods.
-
----
-
-## 1. The Fundamental Non-Identifiability Limit
-
-**True Missing-Not-At-Random (MNAR) is mathematically unidentifiable from observed data alone.**
-
-No diagnostic battery, statistical test, machine learning model, or deep neural network can definitively "prove" that data are MNAR without imposing untestable assumptions.
-- Umbra's diagnostic score is a **risk assessment of converging empirical indicators**, not a mathematical proof of the true mechanism.
-- If an analyst assumes MAR, no observed data test can decisively refute the claim that unmeasured covariates (omitted from the dataset) would have satisfied MAR.
+This document catalogues open methodological, statistical, and engineering limitations in Umbra v0.2.0. Rather than asserting completeness or artificial ratings, this record outlines where current assumptions or heuristics can degrade, where asymptotic theory requires care, and where ongoing research is needed.
 
 ---
 
-## 2. Shadow Variables & Auxiliary Instruments Are Not Proved Causal Instruments
+## 1. Non-Identifiability of MNAR from Observed Data Alone
 
-The `shadow_variable_finder` ranks candidate features based purely on two empirical conditions:
-1. Strong correlation with the missingness indicator $R_Y$ ($F > 10$).
-2. Low conditional partial correlation with observed outcome values $Y \mid X$.
-
-**CRITICAL LIMITATION**:
-- Statistical association and partial correlation **CANNOT** prove the exclusion restriction.
-- If a candidate variable $Z$ has an unmeasured direct causal path to unobserved $Y_{\text{mis}}$ that does not manifest on the observed sample, the Heckman selection model will be asymptotically biased.
-- **Rule**: Empirical correlation is only a screening filter. Substantive domain theory is strictly required to validate that an exclusion restriction causally holds.
+* **Theoretical Foundation**: Molenberghs et al. (2008), *Every missingness not at random model has a missingness at random counterpart with equal fit*, JRSS-B 70(2): 371–388.
+* **Code Reference**: umbra/diagnostics/mnar_risk_score.py (lines 11–16, 385–430)
+* **Limitation**: Observed data distributions contain information only about observable implications (e.g., covariate shifts between responders and non-responders, or global departures from MCAR via Little\'s test). If an MNAR process induces missingness purely as a function of the unobserved value {\\text{mis}}$ without affecting observable margins (e.g., pure unconfounded latent self-masking or symmetric tail dropout with balanced margins), observable diagnostics cannot distinguish this from MAR or even MCAR.
+* **Practical Implication**: Low risk does not prove MAR. High risk indicates empirical tension with simple MAR/MCAR assumptions, but the true mechanism remains untestable without auxiliary assumptions or ground-truth follow-up data.
 
 ---
 
-## 3. Heckman Selection Model Without an Exclusion Restriction
+## 2. Heckman Selection Two-Step Standard Error Adjustments
 
-When Heckman selection is executed without an instrumental shadow variable ($W = X$):
-- Identification rests entirely on the non-linearity of the Probit Inverse Mills Ratio $\lambda_1(X\gamma)$.
-- In moderate probability ranges (e.g. $P(R=1) \in [0.20, 0.80]$), the Inverse Mills Ratio is nearly linear in $X\gamma$.
-- This induces **severe multicollinearity** between $X$ and $\lambda_1$, leading to inflated standard errors, extreme variance, and numerical instability.
-- Umbra will issue a warning and recommends falling back to pattern-mixture sensitivity sweeps rather than relying on functional form identification alone.
-
----
-
-## 4. Sensitivity Parameter Selection ($\delta$)
-
-Pattern-mixture models rely on an external sensitivity parameter $\delta$.
-- $\delta$ is not estimated from data.
-- The choice of grid (e.g. $[-1.5, +1.5]$ standard deviations) is a user-specified assumption. If the true unobserved departure exceeds $+1.5$ standard deviations, the sensitivity interval will not contain the true parameter.
-- Users must justify the bounds of the sensitivity grid using domain benchmarks, historical surveys, or physical bounds.
+* **Theoretical Foundation**: Murphy & Topel (1985), *Estimation and Inference with Two-Step Econometric Estimators*, JBES 3(4): 370–379; Cameron & Trivedi (2005), *Microeconometrics: Methods and Applications*, Cambridge University Press, Section 24.5.
+* **Code Reference**: umbra/imputers/heckman_selection.py (lines 210–245)
+* **Limitation**: The classical Heckman (1979) two-step estimator introduces a generated regressor—the estimated inverse Mills ratio $\\hat{\\lambda}_i = \\lambda(w_i \\hat{\\gamma})$—from the first-stage probit into the second-stage outcome regression. Ordinary least squares (OLS) standard errors from the second stage ignore the estimation variance of $\\hat{\\gamma}$ from the first stage and assume homoskedastic second-stage disturbances, which is violated under selection.
+* **Mitigation & Remaining Boundary**: Paired bootstrap resampling across both stages is used to estimate parameter standard errors when requested (
+_bootstrap_se > 0). Full-information maximum likelihood (FIML) is not implemented in the current release; two-step estimation remains sensitive to exclusion restriction strength and bivariate normality misspecification.
 
 ---
 
-## 5. Finite-Sample & Asymptotic Approximations
+## 3. Near-Singular Design Matrices and Ridge Fallback Uncertainty
 
-- **Little's MCAR Test**: Relies on asymptotic $\chi^2$ distributions. In small samples ($N < 100$) or when missingness patterns have very few observations ($N_j < 5$), $p$-values can be distorted.
-- **Two-Step Heckman Estimator**: Is consistent asymptotically, but can exhibit notable finite-sample bias in small samples ($N < 250$).
-
----
-
-## 6. High-Dimensional Tabular Data ($p > N$)
-
-- Little's EM test and Heckman selection models require inverting covariance matrices of dimension $p \times p$.
-- In high-dimensional regimes ($p > N$ or $p > 100$), classical selection models fail due to singularity. Regularization helps, but classical identification theorems break down.
+* **Code Reference**: umbra/imputers/heckman_selection.py (lines 215–225)
+* **Limitation**: In small samples ( < 100$) or when severe multicollinearity arises between covariates $ and the inverse Mills ratio $\\lambda$ (frequently occurring when exclusion restrictions are weak or absent), second-stage OLS estimation can fail or produce unstable inversions.
+* **Behavior**: Umbra provides an $-regularized Ridge fallback for point estimation to prevent unhandled runtime crashes, but emits a HeckmanSEWarning and sets parameter standard errors to NaN (rather than misleading zeros). Users must recognize that in this regime, formal parametric uncertainty quantification is unavailable.
 
 ---
 
-## 7. Categorical & Text Features
+## 4. Single-Imputation vs. Rubin-Pooled Multiple Imputation Variance in Benchmarking
 
-- Umbra is optimized for numeric and mixed tabular data.
-- High-cardinality nominal variables (e.g. free text, hundreds of categorical levels) must be preprocessed (e.g. via target encoding or dimensionality reduction) before fitting selection models.
+* **Theoretical Foundation**: Rubin, D.B. (1987), *Multiple Imputation for Nonresponse in Surveys*, John Wiley & Sons; Barnard & Rubin (1999), *Small-sample degrees of freedom with multiple imputation*, Biometrika 86(4): 948–955.
+* **Code Reference**: enchmarks/simulation_runner.py (lines 125–165)
+* **Limitation**: When evaluating single-draw imputations ( = 1$), naive plug-in standard errors ($\\hat{\\sigma} / \\sqrt{N}$) underestimate sampling variability because they treat imputed values as observed data without accounting for between-imputation variance.
+* **Standard**: Formal multiple-imputation benchmarks must use  \\ge 5$ stochastic draws pooled via Rubin\'s combining rules with small-sample degrees-of-freedom corrections. Benchmark comparisons that contrast single-imputation plug-in coverage with multiple-imputation literature are methodologically distinct and must be labeled explicitly.
 
 ---
 
-## 8. Causal Interpretation Warning
+## 5. Uncalibrated Decision Threshold Heuristics in the Auto Router
 
-- Umbra is an **imputation and missing-data sensitivity package**, not a causal discovery engine.
-- Imputing missing data does **NOT** turn observational associations into causal effects. Controlling for confounding, collider bias, and exchangeability remains the responsibility of the investigator.
+* **Code Reference**: umbra/diagnostics/mnar_risk_score.py (lines 390–415)
+* **Limitation**: The composite missingness concern score synthesized by Umbra maps into discrete risk tiers (LOW, MEDIUM, HIGH) and strategy selections (mar_chained_equations, mnar_heckman, mnar_pattern_mixture_sensitivity) using heuristic score cutoffs (e.g., 0.25 and 0.50) and decision rules.
+* **Impact**: While these thresholds achieve high separation on stylized synthetic data generators, they are heuristics rather than Bayes-optimal decision boundaries derived from an empirical risk minimization objective or calibrated under real-world cost matrices. Different domain loss functions (e.g., asymmetric penalties for missed MNAR vs. unnecessary sensitivity exploration) warrant user-specified recalibration via enchmarks/router_benchmark.py and scripts/calibrate_thresholds.py.
+
+---
+
+## 6. Synthetic Data Generators vs. Observational Real-World Datasets
+
+* **Code Reference**: enchmarks/dgps.py
+* **Limitation**: The validation suites in Umbra (including scenarios named after CPS labor economics, NHANES clinical biomarkers, and California Housing) are semi-synthetic data-generating processes whose marginal distributions and missingness functions are parametrically simulated.
+* **Distinction**: They demonstrate algorithm behavior under controlled, mathematically known ground-truth mechanisms, but do not represent unconstrained observational datasets where the true mechanism is unknown and unverified. No claim of empirical real-world validation should be inferred from synthetic data generators alone.

@@ -31,10 +31,112 @@ from scipy import stats
 from sklearn.base import BaseEstimator, TransformerMixin
 
 
+__all__ = ["HeckmanSelectionImputer", "WeakInstrumentWarning", "HeckmanSEWarning"]
+
+
 class WeakInstrumentWarning(UserWarning):
     """Warning emitted when a candidate auxiliary instrument fails the Stock-Yogo relevance test (F <= 10)."""
 
     pass
+
+
+class HeckmanSEWarning(UserWarning):
+    """Warning emitted when Heckman standard errors cannot be reliably computed (e.g. singular design matrix, Ridge fallback)."""
+
+    pass
+
+
+def _bootstrap_heckman_se(
+    W_mat: np.ndarray,
+    X_mat_obs: np.ndarray,
+    y_obs: np.ndarray,
+    R_obs: np.ndarray,
+    n_boot: int = 200,
+    rng: Optional[np.random.RandomState] = None,
+) -> np.ndarray:
+    """Paired bootstrap standard error for Heckman two-step estimator.
+
+    Both stages are re-estimated on each bootstrap resample, correctly
+    propagating first-stage estimation uncertainty into second-stage SEs.
+    This implements the nonparametric bootstrap as recommended by
+    Cameron & Trivedi (2005) Section 24.5 as a computationally tractable
+    alternative to Murphy-Topel (1985) analytical correction.
+    """
+    if rng is None:
+        rng = np.random.RandomState(42)
+
+    n_total = len(W_mat)
+    k_params = X_mat_obs.shape[1] + 1  # X coefficients (including constant) + lambda
+
+    obs_indices = np.where(R_obs == 1)[0]
+    if len(X_mat_obs) == n_total:
+        X_full = X_mat_obs
+        y_full = y_obs
+    else:
+        X_full = np.zeros((n_total, X_mat_obs.shape[1]), dtype=float)
+        X_full[obs_indices] = X_mat_obs
+        y_full = np.full(n_total, np.nan, dtype=float)
+        y_full[obs_indices] = y_obs
+
+    boot_params: List[np.ndarray] = []
+    max_attempts = n_boot * 3
+    attempts = 0
+
+    while len(boot_params) < n_boot and attempts < max_attempts:
+        attempts += 1
+        boot_idx = rng.choice(n_total, size=n_total, replace=True)
+        R_b = R_obs[boot_idx]
+
+        n_obs_b = int(np.sum(R_b == 1))
+        if n_obs_b < k_params + 5 or n_obs_b > n_total - 5:
+            continue
+
+        W_b = W_mat[boot_idx]
+
+        # Step 1: Selection equation on resample
+        try:
+            probit_mod = sm.Probit(R_b, W_b)
+            probit_res = probit_mod.fit(disp=0, maxiter=35)
+            gamma_b = probit_res.params
+        except Exception:
+            try:
+                logit_mod = sm.Logit(R_b, W_b)
+                logit_res = logit_mod.fit(disp=0, maxiter=35)
+                gamma_b = logit_res.params / 1.6
+            except Exception:
+                try:
+                    ols_lpm = sm.OLS(R_b, W_b).fit()
+                    gamma_b = ols_lpm.params * 2.5
+                except Exception:
+                    continue
+
+        obs_mask_b = R_b == 1
+        eta_b = W_b @ gamma_b
+        lambda_1_b = _compute_imr_observed(eta_b[obs_mask_b])
+
+        # Step 2: Outcome regression on resample observed cases
+        X_obs_b = X_full[boot_idx][obs_mask_b]
+        y_obs_b = y_full[boot_idx][obs_mask_b]
+
+        design_b = np.column_stack([X_obs_b, lambda_1_b])
+
+        try:
+            ols_b = sm.OLS(y_obs_b, design_b).fit()
+            if len(ols_b.params) == k_params and not np.any(np.isnan(ols_b.params)):
+                boot_params.append(ols_b.params)
+        except Exception:
+            continue
+
+    if len(boot_params) >= 10:
+        se = np.std(boot_params, axis=0, ddof=1)
+        return np.asarray(se, dtype=float)
+    else:
+        warnings.warn(
+            f"Bootstrap standard error estimation completed with only {len(boot_params)}/{n_boot} successful draws. Returning NaN standard errors.",
+            HeckmanSEWarning,
+            stacklevel=2,
+        )
+        return np.full(k_params, np.nan, dtype=float)
 
 
 def _compute_imr_observed(eta: np.ndarray) -> np.ndarray:
@@ -103,6 +205,7 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         stochastic: bool = False,
         n_imputations: int = 1,
         n_draws: Optional[int] = None,
+        n_bootstrap_se: int = 200,
         random_state: Optional[int] = 42,
     ):
         self.target_cols = target_cols
@@ -110,6 +213,7 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         self.stochastic = stochastic
         self.n_imputations = n_draws if n_draws is not None else n_imputations
         self.n_draws = n_draws
+        self.n_bootstrap_se = n_bootstrap_se
         self.random_state = random_state
 
         # Fitted attributes
@@ -209,16 +313,49 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
             y_obs = df.loc[obs_mask, target].to_numpy(dtype=float)
 
             try:
+                if np.linalg.matrix_rank(design_obs) < design_obs.shape[1]:
+                    raise np.linalg.LinAlgError("Near-singular design matrix in Heckman second stage.")
                 ols_res = sm.OLS(y_obs, design_obs).fit()
                 params = ols_res.params
-                std_errors = ols_res.bse
+                if self.n_bootstrap_se > 0:
+                    X_df_all = df[X_cols].fillna(df[X_cols].median())
+                    X_mat_all = sm.add_constant(X_df_all.to_numpy(dtype=float), has_constant="add")
+                    rng_se = np.random.RandomState(
+                        (self.random_state + 999) if self.random_state is not None else None
+                    )
+                    std_errors = _bootstrap_heckman_se(
+                        W_mat=W_mat,
+                        X_mat_obs=X_mat_all,
+                        y_obs=df[target].to_numpy(dtype=float),
+                        R_obs=R,
+                        n_boot=self.n_bootstrap_se,
+                        rng=rng_se,
+                    )
+                else:
+                    warnings.warn(
+                        "Heckman selection imputer fitted with n_bootstrap_se=0. "
+                        "Second-stage standard errors are naive OLS standard errors that ignore "
+                        "first-stage estimation uncertainty (Murphy-Topel 1985 bias) and understate uncertainty.",
+                        HeckmanSEWarning,
+                        stacklevel=2,
+                    )
+                    std_errors = ols_res.bse
             except Exception:
                 # Regularized ridge fallback
                 from sklearn.linear_model import Ridge
 
+                warnings.warn(
+                    "Heckman second-stage OLS failed due to near-singular design matrix. "
+                    "Ridge regression fallback was used. Standard errors are set to NaN, "
+                    "not zero, to prevent silent zero-width confidence intervals. "
+                    "Imputed point estimates may still be reasonable but uncertainty "
+                    "quantification is unavailable for this column.",
+                    HeckmanSEWarning,
+                    stacklevel=3,
+                )
                 r_est = Ridge(alpha=1.0).fit(design_obs, y_obs)
                 params = np.concatenate([[r_est.intercept_], r_est.coef_[1:]])
-                std_errors = np.zeros_like(params)
+                std_errors = np.full_like(params, np.nan)
 
             beta = params[:-1]
             beta_lambda = float(params[-1])

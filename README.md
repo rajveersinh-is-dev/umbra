@@ -243,6 +243,7 @@ python -m benchmarks.misspecification_benchmark
 
 ## Research Documentation & Technical Foundations
 
+- **[Known Limitations & Open Problems](docs/limitations.md)**: Open methodological, statistical, and finite-sample limitations, including generated-regressor SE corrections and single-imputation vs. Rubin-pooled variance.
 - **[The Identifiability Map](docs/identifiability.md)**: Observable evidence, assumption-dependent estimation, and why blind Manski bounds break down on unbounded variables.
 - **[Method Selection Matrix](docs/method_selection_matrix.md)**: Structured guide detailing when each estimator succeeds, degrades, or fails.
 - **[Claims & Theorems Audit](docs/claims_audit.md)**: Epistemic classification of every mathematical claim across the codebase.

@@ -67,6 +67,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         shadow_cols: Optional[Dict[str, str]] = None,
         run_sensitivity: bool = True,
         n_imputations: int = 1,
+        n_bootstrap_se: int = 200,
         random_state: Optional[int] = 42,
         verbose: bool = False,
     ):
@@ -75,6 +76,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         self.shadow_cols = shadow_cols
         self.run_sensitivity = run_sensitivity
         self.n_imputations = n_imputations
+        self.n_bootstrap_se = n_bootstrap_se
         self.random_state = random_state
         self.verbose = verbose
 
@@ -139,6 +141,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
             heck_imputer = HeckmanSelectionImputer(
                 shadow_cols=effective_shadows,
                 n_imputations=self.n_imputations,
+                n_bootstrap_se=self.n_bootstrap_se,
                 random_state=self.random_state,
             )
             heck_imputer.fit(df)
@@ -194,6 +197,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
                     target_cols=heckman_cols,
                     shadow_cols=effective_shadows,
                     n_imputations=self.n_imputations,
+                    n_bootstrap_se=self.n_bootstrap_se,
                     random_state=self.random_state,
                 )
                 heck_imp.fit(df)
