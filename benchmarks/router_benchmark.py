@@ -55,6 +55,8 @@ class RouterEvaluationSummary:
     mar_correct_rate_ci: Tuple[float, float]
     mnar_correct_rate: float
     mnar_correct_rate_ci: Tuple[float, float]
+    dispatch_precision: float
+    dispatch_precision_ci: Tuple[float, float]
     false_alarm_rate: float
     false_alarm_rate_ci: Tuple[float, float]
     missed_risk_rate: float
@@ -96,34 +98,53 @@ def evaluate_single_routing(
     risk_rep = imputer.diagnostics_.get(sim.target_col)
     risk_level = risk_rep.risk_level if risk_rep else "LOW"
 
-    # Define Ground Truth Expectations:
-    # - MCAR: Expected strategy is 'mar_chained_equations' (risk LOW)
-    # - MAR: Expected strategy is 'mar_chained_equations' (risk LOW or MEDIUM without tail concentration)
-    is_mcar = mechanism.upper() == "MCAR"
-    is_mar = mechanism.upper() == "MAR"
+    has_shadow = risk_rep is not None and risk_rep.shadow_candidate is not None
+
+    mech_upper = mechanism.upper()
+    is_mcar = mech_upper == "MCAR"
+    is_mar = mech_upper == "MAR"
 
     if is_mcar:
-        is_correct = decision == "mar_chained_equations"
-        is_false_alarm = risk_level == "HIGH"
+        expected_dispatch = "mar_chained_equations"
+        is_correct = (decision == "mar_chained_equations") and (risk_level == "LOW")
+        is_false_alarm = (risk_level == "HIGH") or (decision != "mar_chained_equations")
         is_missed_risk = False
     elif is_mar:
+        expected_dispatch = "mar_chained_equations"
         is_correct = decision == "mar_chained_equations"
-        is_false_alarm = risk_level == "HIGH"
+        is_false_alarm = (risk_level == "HIGH") or (decision != "mar_chained_equations")
         is_missed_risk = False
-    else:
-        # MNAR
-        is_correct = decision in ("heckman_selection", "pattern_mixture") or risk_level in (
-            "HIGH",
-            "MEDIUM",
-        )
+    elif mech_upper == "MNAR_SELECTION":
+        if has_shadow:
+            expected_dispatch = "heckman_selection"
+            is_correct = decision == "heckman_selection"
+        else:
+            expected_dispatch = "heckman_selection or pattern_mixture"
+            is_correct = decision in ("heckman_selection", "pattern_mixture")
         is_false_alarm = False
-        is_missed_risk = risk_level == "LOW"
+        is_missed_risk = (risk_level == "LOW") or (decision == "mar_chained_equations")
+    elif mech_upper in ("MNAR_TAILS", "MNAR_PATTERN_MIXTURE"):
+        expected_dispatch = "pattern_mixture"
+        is_correct = decision == "pattern_mixture"
+        is_false_alarm = False
+        is_missed_risk = (risk_level == "LOW") or (decision == "mar_chained_equations")
+    elif mech_upper == "MNAR_SELF_MASKING":
+        expected_dispatch = "heckman_selection or pattern_mixture"
+        is_correct = decision in ("heckman_selection", "pattern_mixture")
+        is_false_alarm = False
+        is_missed_risk = (risk_level == "LOW") or (decision == "mar_chained_equations")
+    else:
+        expected_dispatch = "heckman_selection or pattern_mixture"
+        is_correct = decision in ("heckman_selection", "pattern_mixture")
+        is_false_alarm = False
+        is_missed_risk = (risk_level == "LOW") or (decision == "mar_chained_equations")
 
     return {
         "mechanism": mechanism,
         "n_samples": n_samples,
         "missing_rate": missing_rate,
         "severity": severity,
+        "expected_dispatch": expected_dispatch,
         "decision": decision,
         "risk_level": risk_level,
         "is_correct": bool(is_correct),
@@ -210,6 +231,15 @@ def benchmark_auto_router(
     false_alarm = float(n_false_alarm / n_mcar_mar) if n_mcar_mar > 0 else 0.0
     missed_risk = float(n_missed_risk / n_mnar) if n_mnar > 0 else 0.0
 
+    # Dispatch precision: when MNAR strategy is dispatched, fraction that were truly MNAR
+    mnar_dispatched_mask = df["decision"].isin(["heckman_selection", "pattern_mixture"])
+    n_mnar_dispatched = int(mnar_dispatched_mask.sum())
+    n_true_mnar_dispatched = int((mnar_dispatched_mask & mnar_mask).sum())
+    dispatch_precision = (
+        float(n_true_mnar_dispatched / n_mnar_dispatched) if n_mnar_dispatched > 0 else 1.0
+    )
+    dispatch_precision_ci = wilson_score_interval(n_true_mnar_dispatched, n_mnar_dispatched)
+
     # Confusion matrix: Ground Truth vs Chosen Decision
     conf_matrix = pd.crosstab(df["mechanism"], df["decision"], margins=True, normalize="index")
 
@@ -228,6 +258,8 @@ def benchmark_auto_router(
         mar_correct_rate_ci=mar_ci,
         mnar_correct_rate=mnar_correct,
         mnar_correct_rate_ci=mnar_ci,
+        dispatch_precision=dispatch_precision,
+        dispatch_precision_ci=dispatch_precision_ci,
         false_alarm_rate=false_alarm,
         false_alarm_rate_ci=false_alarm_ci,
         missed_risk_rate=missed_risk,

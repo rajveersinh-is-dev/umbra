@@ -80,3 +80,17 @@ def test_diagnose_dataframe_all_columns(benchmarks):
     for col, rep in reports.items():
         assert 0.0 <= rep.composite_score <= 1.0
         assert rep.risk_level in ("LOW", "MEDIUM", "HIGH")
+
+
+def test_router_strict_dispatch_and_expected_field():
+    """Verify that evaluate_single_routing returns expected_dispatch and adheres to strict correctness."""
+    from benchmarks.router_benchmark import evaluate_single_routing
+
+    res_mcar = evaluate_single_routing("MCAR", n_samples=300, missing_rate=0.20, random_state=42)
+    assert "expected_dispatch" in res_mcar
+    assert res_mcar["expected_dispatch"] == "mar_chained_equations"
+    assert res_mcar["is_correct"] is True
+
+    res_mnar = evaluate_single_routing("MNAR_SELECTION", n_samples=300, missing_rate=0.30, random_state=42)
+    assert "expected_dispatch" in res_mnar
+    assert isinstance(res_mnar["is_correct"], bool)
