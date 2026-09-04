@@ -181,8 +181,121 @@ def benchmark_auto_router(
     )
 
 
+def compare_router_against_baselines(
+    n_replications: int = 10,
+    n_samples: int = 1500,
+    missing_rate: float = 0.30,
+    base_seed: int = 42,
+) -> pd.DataFrame:
+    """Compare Umbra Auto router against fixed strategies:
+    - Always MICE
+    - Always Heckman
+    - Oracle Strategy
+    - Complete-Case
+    """
+    from benchmarks.simulation_runner import CompleteCaseBaseline, evaluate_imputer_replication
+    from umbra.imputers.heckman_selection import HeckmanSelectionImputer
+    from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
+    from umbra.imputers.pattern_mixture import PatternMixtureImputer
+
+    regimes = [
+        "MCAR",
+        "MAR",
+        "MNAR_SELECTION",
+        "MNAR_SELF_MASKING",
+        "MNAR_TAILS",
+    ]
+
+    records = []
+    for reg in regimes:
+        for rep in range(n_replications):
+            seed = base_seed + rep * 101
+            sim = generate_simulation_dataset(
+                mechanism=reg,
+                n_samples=n_samples,
+                missing_rate=missing_rate,
+                random_state=seed,
+            )
+
+            res_cc = evaluate_imputer_replication(lambda: CompleteCaseBaseline(), sim, rep_idx=rep)
+            res_mice = evaluate_imputer_replication(
+                lambda: MARChainedEquationsImputer(imputation_method="pmm", random_state=seed),
+                sim,
+                rep_idx=rep,
+            )
+            res_heck = evaluate_imputer_replication(
+                lambda: HeckmanSelectionImputer(
+                    shadow_cols={sim.target_col: sim.shadow_col} if sim.shadow_col else None,
+                    random_state=seed,
+                ),
+                sim,
+                rep_idx=rep,
+            )
+            res_auto = evaluate_imputer_replication(
+                lambda: UmbraImputer(
+                    strategy="auto",
+                    shadow_cols={sim.target_col: sim.shadow_col} if sim.shadow_col else None,
+                    run_sensitivity=False,
+                    random_state=seed,
+                ),
+                sim,
+                rep_idx=rep,
+            )
+
+            if reg in ["MCAR", "MAR"]:
+                oracle_fn = lambda: MARChainedEquationsImputer(  # noqa: E731
+                    imputation_method="pmm", random_state=seed
+                )
+            elif reg == "MNAR_SELECTION":
+                oracle_fn = lambda: HeckmanSelectionImputer(  # noqa: E731
+                    shadow_cols={sim.target_col: sim.shadow_col} if sim.shadow_col else None,
+                    random_state=seed,
+                )
+            else:
+                oracle_fn = lambda: PatternMixtureImputer(delta=0.0, random_state=seed)  # noqa: E731
+
+            res_oracle = evaluate_imputer_replication(oracle_fn, sim, rep_idx=rep)
+
+            for strat_name, r in [
+                ("Complete-Case", res_cc),
+                ("Always MICE", res_mice),
+                ("Always Heckman", res_heck),
+                ("Umbra Auto", res_auto),
+                ("Oracle Route", res_oracle),
+            ]:
+                records.append(
+                    {
+                        "Regime": reg,
+                        "Strategy": strat_name,
+                        "Beta Total Error": abs(r.beta_age - 0.5) + abs(r.beta_edu - 0.8),
+                        "Cell RMSE": r.cell_rmse,
+                        "Mean Bias": r.mean_bias,
+                        "Coverage 95": float(r.ci_95_covered),
+                    }
+                )
+
+    df = pd.DataFrame(records)
+    summary = (
+        df.groupby(["Regime", "Strategy"])
+        .agg(
+            {
+                "Beta Total Error": "mean",
+                "Cell RMSE": "mean",
+                "Mean Bias": "mean",
+                "Coverage 95": "mean",
+            }
+        )
+        .reset_index()
+    )
+    return summary
+
+
 if __name__ == "__main__":
-    summary = benchmark_auto_router(n_replications_per_cell=5)
+    summary = benchmark_auto_router(
+        n_replications_per_cell=3,
+        sample_sizes=[500, 1000, 2500],
+        missing_rates=[0.20, 0.30, 0.40],
+    )
     print("\n--- AUTO ROUTER BENCHMARK RESULTS ---")
     print(f"Overall Accuracy    : {summary.overall_accuracy:.1%}")
     print(f"MCAR Correct Rate   : {summary.mcar_correct_rate:.1%}")
@@ -192,3 +305,7 @@ if __name__ == "__main__":
     print(f"Missed Risk Rate    : {summary.missed_risk_rate:.1%}")
     print("\nConfusion Matrix:")
     print(summary.confusion_matrix.to_string())
+
+    print("\nComparing Auto Router against Fixed Strategies...")
+    cmp_df = compare_router_against_baselines(n_replications=3, n_samples=1000)
+    print(cmp_df.to_string(index=False))

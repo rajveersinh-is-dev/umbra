@@ -1,4 +1,4 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -55,3 +55,4 @@ htmlcov/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+benchmarks/quick_results.md

@@ -7,12 +7,35 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install Lint & Typecheck Tools
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -e ".[all]"
+    - name: Run Ruff Lint Check
+      run: |
+        ruff check .
+    - name: Run Ruff Format Check
+      run: |
+        ruff format --check .
+    - name: Run Mypy Type Check
+      run: |
+        mypy umbra
+
+  test-matrix:
+    needs: lint-and-typecheck
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest ]
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
         python-version: [ "3.10", "3.11", "3.12" ]
 
     steps:
@@ -28,18 +51,42 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install -e ".[all]"
 
-    - name: Run Ruff Lint Check
+    - name: Run Pytest Suite with Coverage Enforcement (>=85%)
       run: |
-        ruff check umbra tests scripts
+        pytest tests/ --cov=umbra --cov-report=term-missing --cov-fail-under=85
 
-    - name: Run Ruff Format Check
-      run: |
-        ruff format --check umbra tests scripts
+  smoke-benchmarks-and-packaging:
+    needs: test-matrix
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
 
-    - name: Run Mypy Type Check
-      run: |
-        mypy umbra
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
 
-    - name: Run Pytest Suite
+    - name: Install dependencies
       run: |
-        pytest tests/ --cov=umbra --cov-report=term-missing
+        python -m pip install --upgrade pip build
+        python -m pip install -e ".[all]"
+
+    - name: Run Benchmark Quick Smoke Test
+      run: |
+        python scripts/reproduce_benchmarks.py --quick
+
+    - name: Run Case Studies Smoke Test
+      run: |
+        python scripts/reproduce_case_studies.py
+
+    - name: Build Wheel & Sdist
+      run: |
+        python -m build
+
+    - name: Test Wheel Installation in Clean Environment
+      run: |
+        python -m venv test_env
+        source test_env/bin/activate
+        pip install dist/*.whl
+        python -c "import umbra; print('Umbra successfully installed:', umbra.__version__)"
+        umbra --help

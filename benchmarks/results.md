@@ -67,7 +67,7 @@ Umbra's Auto mode is independently evaluated as an evidence-conditioned decision
 - **Overall Routing Accuracy**: `96.7%`
 - **MCAR Selection Accuracy**: `100.0%` (Correctly preserved standard MAR/MICE)
 - **MAR Selection Accuracy** : `100.0%` (Correctly preserved standard MAR/MICE)
-- **MNAR Risk Detection**   : `95.0%` (Correctly identified severe departure requiring MNAR analysis)
+- **MNAR Risk Identification Sensitivity**: `95.0%` (Correctly identified severe departure requiring MNAR analysis)
 - **False Alarm Rate**       : `0.0%` (MCAR/MAR falsely escalated to severe MNAR)
 - **Missed Risk Rate**       : `5.0%` (MNAR falsely classified as benign MCAR)
 
@@ -114,7 +114,7 @@ Umbra's Auto mode is independently evaluated as an evidence-conditioned decision
    - When data are MNAR (Self-Masking, Selection, Pattern Mixture), standard MICE exhibits severe systematic bias (up to -0.60) and **catastrophic coverage failure** (empirical coverage collapses to 0-15%). Confident point estimates under a false MAR assumption are systematically misleading.
 
 2. **Selection Model Parameter Recovery via Auxiliary Variables**:
-   - When a candidate auxiliary variable satisfying the exclusion restriction is available, Heckman selection recovers ground truth parameters, reducing cell bias by 70-85% and restoring downstream beta accuracy.
+   - When a candidate auxiliary variable satisfying the exclusion restriction is available, Heckman selection consistently estimates outcome distributions under joint normality, reducing cell bias by 70-85% and restoring downstream beta accuracy.
 
 3. **Umbra Auto Adaptivity Without Gaming**:
    - Under MCAR and MAR, Umbra Auto avoids misspecified selection models and routes to MICE (preserving efficiency and low bias).

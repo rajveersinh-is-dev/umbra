@@ -215,6 +215,32 @@ def generate_simulation_dataset(
         mask = rng.uniform(0, 1, size=n) < probs
         dgp_formula = "logit P(R=0) = alpha_0 + 1.4 * (Y_std)^2 + 0.3 * age"
 
+    elif mechanism.upper() in ("MNAR_WEAK_SIGNAL", "MNAR_WEAK"):
+        # Weak selection signal: subtle departure from MAR, hard to distinguish from observables
+        latent = 0.40 * y_std + 0.85 * age - 0.75 * edu
+        intercept = np.quantile(latent, 1.0 - missing_rate)
+        probs = expit(latent - intercept)
+        mask = rng.uniform(0, 1, size=n) < probs
+        dgp_formula = "logit P(R=0) = alpha_0 + 0.40 * Y_std + 0.85 * age - 0.75 * edu (Weak MNAR)"
+
+    elif mechanism.upper() in ("MNAR_STRONG_SIGNAL", "MNAR_STRONG"):
+        # Strong selection signal: massive unobserved self-masking
+        latent = 2.80 * y_std + 0.35 * age
+        intercept = np.quantile(latent, 1.0 - missing_rate)
+        probs = expit(latent - intercept)
+        mask = rng.uniform(0, 1, size=n) < probs
+        dgp_formula = "logit P(R=0) = alpha_0 + 2.80 * Y_std + 0.35 * age (Strong MNAR)"
+
+    elif mechanism.upper() in ("MNAR_MISSPECIFIED", "MNAR_NON_NORMAL"):
+        # Misspecified selection model: heavy-tailed t(3) shocks and non-linear root transformation
+        t_shock = rng.standard_t(df=3, size=n)
+        z_star = 0.5 * age + 1.2 * z + 1.2 * np.sign(y_std) * np.sqrt(np.abs(y_std)) + 0.8 * t_shock
+        cutoff = np.quantile(z_star, missing_rate)
+        mask = z_star < cutoff
+        dgp_formula = (
+            "z* = 0.5*age + 1.2*z + 1.2*sign(Y)*sqrt(|Y|) + 0.8*t_3 (Misspecified Selection)"
+        )
+
     else:
         raise ValueError(f"Unknown missingness mechanism: '{mechanism}'")
 
