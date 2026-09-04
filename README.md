@@ -1,4 +1,4 @@
-# ?? Umbra: MNAR-Aware Missing Data Imputation & Diagnostics
+# Umbra: MNAR-Aware Missing Data Imputation & Diagnostics
 
 [![CI](https://github.com/Raj123-0/umbra/actions/workflows/ci.yml/badge.svg)](https://github.com/Raj123-0/umbra/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
