@@ -22,11 +22,13 @@ from umbra.sensitivity.grid_analysis import run_sensitivity_grid
 # Load clinical trial data where depression score has patient attrition
 df = pd.read_csv("data/processed/clinical_trial_attrition_observed.csv")
 
+
 # Custom evaluator: Difference in mean endpoint score between treatment arms
 def treatment_effect_evaluator(imputed_df: pd.DataFrame) -> float:
     mean_active = imputed_df.loc[imputed_df["treatment_arm"] == 1, "endpoint_score"].mean()
     mean_placebo = imputed_df.loc[imputed_df["treatment_arm"] == 0, "endpoint_score"].mean()
     return float(mean_active - mean_placebo)
+
 
 # Run sensitivity grid sweep
 report = run_sensitivity_grid(

@@ -60,19 +60,30 @@ Synthesizes empirical evidence signals into an MNAR risk assessment.
 
 ### `MARChainedEquationsImputer`
 ```python
-umbra.MARChainedEquationsImputer(max_iter=10, imputation_method='pmm', n_donors=5, n_imputations=1, random_state=42)
+umbra.MARChainedEquationsImputer(
+    max_iter=10, imputation_method="pmm", n_donors=5, n_imputations=1, random_state=42
+)
 ```
 MICE chained equations under MAR. Supports PMM, Bayesian Ridge, and Ridge regression.
 
 ### `HeckmanSelectionImputer`
 ```python
-umbra.HeckmanSelectionImputer(target_cols=None, shadow_cols=None, stochastic=False, n_imputations=1, random_state=42)
+umbra.HeckmanSelectionImputer(
+    target_cols=None, shadow_cols=None, stochastic=False, n_imputations=1, random_state=42
+)
 ```
 Heckman two-step selection model imputer with Inverse Mills Ratio correction.
 
 ### `PatternMixtureImputer`
 ```python
-umbra.PatternMixtureImputer(delta=0.0, shift_type='standardized', target_cols=None, stochastic=False, n_imputations=1, random_state=42)
+umbra.PatternMixtureImputer(
+    delta=0.0,
+    shift_type="standardized",
+    target_cols=None,
+    stochastic=False,
+    n_imputations=1,
+    random_state=42,
+)
 ```
 Pattern-mixture model imputer with sensitivity shift $\delta$.
 

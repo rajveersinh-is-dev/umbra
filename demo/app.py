@@ -7,6 +7,7 @@ honest imputation, and sensitivity grid analysis.
 
 from io import StringIO
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,8 +17,6 @@ from scripts.build_synthetic_benchmarks import generate_benchmark_battery
 from umbra.api import UmbraImputer
 from umbra.diagnostics.mcar_test import littles_mcar_test
 from umbra.diagnostics.mnar_risk_score import diagnose_dataframe
-from umbra.diagnostics.pattern_analysis import analyze_missingness_patterns
-from umbra.diagnostics.shadow_variable_finder import find_shadow_variables
 from umbra.explain import diagnostics_to_markdown
 from umbra.sensitivity.grid_analysis import run_sensitivity_grid
 
@@ -50,9 +49,11 @@ data_source = st.sidebar.radio(
     ],
 )
 
+
 @st.cache_data
 def get_presets():
     return generate_benchmark_battery(n_samples=1500, random_state=42)
+
 
 presets = get_presets()
 
@@ -81,7 +82,15 @@ else:
             rng = np.random.RandomState(42)
             y = df_full["annual_income"].values
             log_y = np.log(y)
-            prob_miss = 1 / (1 + np.exp(-(1.2 * (log_y - np.mean(log_y)) + 0.4 * (df_full["contact_attempts"].values - 3))))
+            prob_miss = 1 / (
+                1
+                + np.exp(
+                    -(
+                        1.2 * (log_y - np.mean(log_y))
+                        + 0.4 * (df_full["contact_attempts"].values - 3)
+                    )
+                )
+            )
             mask = rng.uniform(0, 1, size=len(df_full)) < prob_miss
             df = df_full.copy()
             df.loc[mask, "annual_income"] = np.nan
@@ -104,7 +113,14 @@ missing_cols = [c for c in df.columns if df[c].isna().any()]
 if not selected_target or selected_target not in missing_cols:
     selected_target = missing_cols[0] if missing_cols else None
 
-tabs = st.tabs(["1. Data Overview", "2. MNAR Diagnostics", "3. Sensitivity Analysis & Imputation", "4. Methodology"])
+tabs = st.tabs(
+    [
+        "1. Data Overview",
+        "2. MNAR Diagnostics",
+        "3. Sensitivity Analysis & Imputation",
+        "4. Methodology",
+    ]
+)
 
 # TAB 1: Data Overview
 with tabs[0]:
@@ -118,12 +134,14 @@ with tabs[0]:
 
     if missing_cols:
         st.subheader("Missingness Proportions")
-        miss_summary = pd.DataFrame({
-            "Column": missing_cols,
-            "Missing Rows": [df[c].isna().sum() for c in missing_cols],
-            "Missing Rate": [f"{df[c].isna().mean():.1%}" for c in missing_cols],
-            "Data Type": [str(df[c].dtype) for c in missing_cols],
-        })
+        miss_summary = pd.DataFrame(
+            {
+                "Column": missing_cols,
+                "Missing Rows": [df[c].isna().sum() for c in missing_cols],
+                "Missing Rate": [f"{df[c].isna().mean():.1%}" for c in missing_cols],
+                "Data Type": [str(df[c].dtype) for c in missing_cols],
+            }
+        )
         st.dataframe(miss_summary, use_container_width=True)
     else:
         st.success("No missing values detected in this dataset.")
@@ -139,7 +157,9 @@ with tabs[1]:
     if not missing_cols:
         st.info("No incomplete columns to diagnose.")
     else:
-        with st.spinner("Running Little's MCAR test, covariate shift analysis, and self-censoring checks..."):
+        with st.spinner(
+            "Running Little's MCAR test, covariate shift analysis, and self-censoring checks..."
+        ):
             numeric_df = df.select_dtypes(include=[np.number])
             little_res = littles_mcar_test(numeric_df) if numeric_df.shape[1] > 1 else None
             reports = diagnose_dataframe(df)
@@ -151,7 +171,11 @@ with tabs[1]:
             col_l1.metric("Chi-Squared Stat", f"{little_res.statistic:.2f}")
             col_l2.metric("Degrees of Freedom", little_res.degrees_of_freedom)
             col_l3.metric("p-value", f"{little_res.p_value:.2e}")
-            verdict = "? REJECT MCAR (MAR or MNAR)" if little_res.is_rejected else "? Consistent with MCAR"
+            verdict = (
+                "? REJECT MCAR (MAR or MNAR)"
+                if little_res.is_rejected
+                else "? Consistent with MCAR"
+            )
             col_l4.metric("Little's Test Verdict", verdict)
             st.caption(little_res.note)
 
@@ -166,24 +190,30 @@ with tabs[1]:
             else:
                 badge = "?? **LOW MNAR RISK**"
 
-            with st.expander(f"{col_name} ? {badge} (Score: {rep.composite_score:.2f})", expanded=True):
+            with st.expander(
+                f"{col_name} ? {badge} (Score: {rep.composite_score:.2f})", expanded=True
+            ):
                 st.write(f"**Explanation:** {rep.explanation}")
                 st.write(f"**Recommended Strategy:** `{rep.recommended_strategy}`")
                 if rep.shadow_candidate:
-                    st.write(f"**Candidate Instrument / Shadow Variable:** `{rep.shadow_candidate}`")
+                    st.write(
+                        f"**Candidate Instrument / Shadow Variable:** `{rep.shadow_candidate}`"
+                    )
                 if rep.citation:
                     st.info(f"?? **Literature Reference:** {rep.citation}")
 
                 # Signals table
                 sig_data = []
                 for s in rep.signals:
-                    sig_data.append({
-                        "Diagnostic Signal": s.name,
-                        "Status": "TRIGGERED" if s.is_triggered else "PASS",
-                        "Score": f"{s.score:.2f}",
-                        "Weight": f"{s.weight:.2f}",
-                        "Description": s.description,
-                    })
+                    sig_data.append(
+                        {
+                            "Diagnostic Signal": s.name,
+                            "Status": "TRIGGERED" if s.is_triggered else "PASS",
+                            "Score": f"{s.score:.2f}",
+                            "Weight": f"{s.weight:.2f}",
+                            "Description": s.description,
+                        }
+                    )
                 st.dataframe(pd.DataFrame(sig_data), use_container_width=True)
 
         # Download diagnostic report
@@ -206,7 +236,9 @@ with tabs[2]:
     if not missing_cols:
         st.info("No missing columns to impute.")
     else:
-        target_to_impute = st.selectbox("Select Target Variable to Impute & Analyze:", missing_cols, index=0)
+        target_to_impute = st.selectbox(
+            "Select Target Variable to Impute & Analyze:", missing_cols, index=0
+        )
 
         col_s1, col_s2 = st.columns(2)
         strategy = col_s1.selectbox(
@@ -235,17 +267,38 @@ with tabs[2]:
         deltas = grid_df["delta"].values
         means = grid_df["target_mean"].values
 
-        ax.plot(deltas, means, marker="o", color="#1f77b4", linewidth=2.5, label="Imputed Mean vs MNAR Delta")
-        ax.axhline(sens_report.mar_baseline_estimate, color="red", linestyle="--", alpha=0.7, label=f"Naive MAR Estimate ({sens_report.mar_baseline_estimate:.2f})")
+        ax.plot(
+            deltas,
+            means,
+            marker="o",
+            color="#1f77b4",
+            linewidth=2.5,
+            label="Imputed Mean vs MNAR Delta",
+        )
+        ax.axhline(
+            sens_report.mar_baseline_estimate,
+            color="red",
+            linestyle="--",
+            alpha=0.7,
+            label=f"Naive MAR Estimate ({sens_report.mar_baseline_estimate:.2f})",
+        )
         ax.axvline(0, color="gray", linestyle=":", alpha=0.5)
 
         if ground_truth_df is not None and target_to_impute in ground_truth_df:
             true_mean = ground_truth_df[target_to_impute].mean()
-            ax.axhline(true_mean, color="green", linestyle="-", linewidth=2, label=f"True Ground Truth ({true_mean:.2f})")
+            ax.axhline(
+                true_mean,
+                color="green",
+                linestyle="-",
+                linewidth=2,
+                label=f"True Ground Truth ({true_mean:.2f})",
+            )
 
         ax.set_xlabel("MNAR Sensitivity Shift (delta in residual std devs)")
         ax.set_ylabel(f"Imputed Mean of {target_to_impute}")
-        ax.set_title(f"Sensitivity Analysis: Downstream Shift Across MNAR Assumptions for '{target_to_impute}'")
+        ax.set_title(
+            f"Sensitivity Analysis: Downstream Shift Across MNAR Assumptions for '{target_to_impute}'"
+        )
         ax.grid(True, alpha=0.3)
         ax.legend()
         st.pyplot(fig)

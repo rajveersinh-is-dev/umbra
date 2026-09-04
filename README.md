@@ -132,10 +132,12 @@ imputer = UmbraImputer(
 )
 
 # Pipeline integration
-pipe = Pipeline([
-    ("imputer", imputer),
-    ("regressor", Ridge()),
-])
+pipe = Pipeline(
+    [
+        ("imputer", imputer),
+        ("regressor", Ridge()),
+    ]
+)
 pipe.fit(X_train, y_train)
 y_pred = pipe.predict(X_test)
 
@@ -161,7 +163,9 @@ means = [d["income"].mean() for d in imputed_datasets]
 vars_ = [d["income"].var() / len(d) for d in imputed_datasets]
 
 pooled = rubins_rules(means, vars_, alpha=0.05)
-print(f"Pooled Mean: {pooled.pooled_mean:.2f} (95% CI: [{pooled.ci_lower:.2f}, {pooled.ci_upper:.2f}])")
+print(
+    f"Pooled Mean: {pooled.pooled_mean:.2f} (95% CI: [{pooled.ci_lower:.2f}, {pooled.ci_upper:.2f}])"
+)
 ```
 
 ---
@@ -215,7 +219,32 @@ Evaluated across repeated Monte Carlo replications ($N=2,500, R=20$ per regime, 
 - **False Alarm Rate**: `0.0%` (MCAR/MAR data never falsely escalated to severe MNAR)
 - **Missed Risk Rate**: `5.0%`
 
-Full reproducible scripts and detailed tables are in [`benchmarks/results.md`](benchmarks/results.md).
+Full reproducible scripts and detailed tables are in [`benchmarks/results.md`](benchmarks/results.md) and [`benchmarks/ablation_results.md`](benchmarks/ablation_results.md).
+
+### Push-Button Reproduction
+
+```bash
+# Fast Monte Carlo verification (~60s)
+python scripts/reproduce_benchmarks.py --quick
+
+# Full research-grade Monte Carlo battery (N=2,500, R=20 per regime)
+python scripts/reproduce_benchmarks.py --full
+
+# End-to-end evaluation on 4 real-world empirical datasets
+python scripts/reproduce_case_studies.py
+
+# Diagnostic routing ablation & signal sensitivity study
+python benchmarks/ablation_study.py
+```
+
+---
+
+## Research Documentation & Technical Foundations
+
+- **[Scientific Specification & Mathematical Foundations](docs/scientific_specification.md)**: Formal mathematical notation, Molenberghs non-identifiability theorem, 4-tier epistemic architecture, and algorithmic derivations.
+- **[Negative Results & Methodological Failure Modes](docs/failure_modes.md)**: Regimes where diagnostics break down (symmetric U-shaped tails, high dimensions $p > n$, weak instruments $F < 10$, non-normal selection errors).
+- **[Peer Review & Scientific Hardening Audit](docs/peer_review_audit.md)**: Multi-disciplinary simulated peer review across mathematical statistics, econometrics, ML engineering, and reproducibility.
+- **[Datasheet for Datasets](data/DATASHEET.md)**: Gebru et al. (2021) specification for CPS, NHANES, California Housing, and Clinical Trial benchmarks.
 
 ---
 

@@ -65,9 +65,15 @@ mar_mean = df_mar["annual_income"].mean()
 heck_mean = df_heck["annual_income"].mean()
 
 print(f"True Population Mean       : ${true_mean:,.2f}")
-print(f"Complete-Case Observed Mean: ${obs_mean:,.2f} (Selection Bias: ${obs_mean - true_mean:+,.2f})")
-print(f"Standard MAR MICE Mean     : ${mar_mean:,.2f} (Residual Bias: ${mar_mean - true_mean:+,.2f})")
-print(f"Heckman Selection Mean     : ${heck_mean:,.2f} (Residual Bias: ${heck_mean - true_mean:+,.2f})")
+print(
+    f"Complete-Case Observed Mean: ${obs_mean:,.2f} (Selection Bias: ${obs_mean - true_mean:+,.2f})"
+)
+print(
+    f"Standard MAR MICE Mean     : ${mar_mean:,.2f} (Residual Bias: ${mar_mean - true_mean:+,.2f})"
+)
+print(
+    f"Heckman Selection Mean     : ${heck_mean:,.2f} (Residual Bias: ${heck_mean - true_mean:+,.2f})"
+)
 ```
 
 ---

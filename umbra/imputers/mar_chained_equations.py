@@ -108,7 +108,9 @@ def rubins_rules(
 
     se = np.sqrt(max(1e-12, t_var))
     crit = (
-        stats.t.ppf(1.0 - alpha / 2.0, df_val) if np.isfinite(df_val) else stats.norm.ppf(1.0 - alpha / 2.0)
+        stats.t.ppf(1.0 - alpha / 2.0, df_val)
+        if np.isfinite(df_val)
+        else stats.norm.ppf(1.0 - alpha / 2.0)
     )
 
     return RubinsRulesResult(

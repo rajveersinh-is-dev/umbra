@@ -25,7 +25,9 @@ p_miss = 1.0 / (1.0 + np.exp(-(0.0001 * (income - np.mean(income)) + 0.05 * (age
 mask = np.random.uniform(0, 1, size=n) < p_miss
 df.loc[mask, "income"] = np.nan
 
-print(f"Missing values in income: {df['income'].isna().sum()} / {n} ({df['income'].isna().mean():.1%})")
+print(
+    f"Missing values in income: {df['income'].isna().sum()} / {n} ({df['income'].isna().mean():.1%})"
+)
 ```
 
 ---
@@ -58,10 +60,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Ridge
 
 # Drop-in transformer inside a scikit-learn Pipeline
-pipeline = Pipeline([
-    ("imputer", UmbraImputer(strategy="auto", random_state=42)),
-    ("regressor", Ridge()),
-])
+pipeline = Pipeline(
+    [
+        ("imputer", UmbraImputer(strategy="auto", random_state=42)),
+        ("regressor", Ridge()),
+    ]
+)
 
 # Fit on training data and predict
 y = df["age"] * 2.5 + np.random.normal(0, 1, size=n)
