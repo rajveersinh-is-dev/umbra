@@ -96,20 +96,26 @@ Because $Y_{\text{mis}}$ is never observed when $R=0$, the second term $P(Y_{\te
 
 ---
 
-## 5. The Non-Parametric Bounds Boundary (Why Not Blind Manski Bounds?)
+## 5. Partial Identification & The Bounds Boundary (Why Not Blind Manski Bounds?)
 
-In econometrics, Manski (1990) and Horowitz & Manski (2000) formulated worst-case non-parametric bounds for missing outcome data:
+In econometrics, partial identification provides a continuum between non-parametric agnosticism and point-identified parametric models. Umbra distinguishes four distinct levels of partial identification:
+
+### 1. Unrestricted Worst-Case Bounds (Manski, 1990; Horowitz & Manski, 2000)
+For missing outcome data without any structural or distributional assumptions:
 $$E[Y] \in \left[ P(R=1)E[Y \mid R=1] + P(R=0)y_{\text{min}},\, P(R=1)E[Y \mid R=1] + P(R=0)y_{\text{max}} \right]$$
+- **Where They Break Down**: For continuous unbounded variables ($Y \in (-\infty, +\infty)$), $y_{\text{min}} = -\infty$ and $y_{\text{max}} = +\infty$. The resulting bounds are $(-\infty, +\infty)$ and completely vacuous.
+- **Why Sample Extrema Fail**: Heuristically substituting sample minimums ($\min Y_{\text{obs}}$) and maximums ($\max Y_{\text{obs}}$) is **statistically invalid**, because under MNAR, non-respondents systematically reside in unobserved tails beyond the sample extremes.
 
-### When Non-Parametric Bounds Are Informative:
-- When the target variable $Y$ has **known, compact finite support** $[y_{\text{min}}, y_{\text{max}}]$ (e.g. proportions in $[0, 1]$, exam scores in $[0, 100]$, 5-point Likert scales).
-- In this setting, Manski bounds provide an honest, assumption-free interval containing the true population mean.
+### 2. Support-Restricted & Monotone Bounds (Informative Partial Identification)
+- When the target variable $Y$ possesses **known, compact physical support** $[y_{\text{min}}, y_{\text{max}}]$ (e.g. survival proportions in $[0, 1]$, examination percentages in $[0, 100]$, 7-point Likert scales), worst-case Manski bounds are mathematically sharp and highly informative.
+- Similarly, under monotone instrument assumptions (Manski & Pepper, 2000) or treatment selection monotonicity (Lee, 2009), bounds can be tightened substantially without parametric distributional assumptions.
 
-### When Non-Parametric Bounds Break Down:
-- For general **continuous unbounded variables** (e.g. wages, sensor measurements, clinical biomarkers, blood pressure):
-  $$y_{\text{min}} = -\infty, \quad y_{\text{max}} = +\infty \implies E[Y] \in (-\infty, +\infty)$$
-- The resulting bounds are completely vacuous and uninformative.
-- Implementing Manski bounds by arbitrarily plugging in sample minimums ($\min(Y_{\text{obs}})$) and maximums ($\max(Y_{\text{obs}})$) is **statistically invalid**, because under MNAR, non-respondents may lie far beyond the observed sample extremes.
+### 3. Parametrically Identified Structural Models (Heckman, 1979)
+- By introducing strong parametric restrictions (e.g., joint bivariate Gaussian errors between selection and outcome equations) and exclusion restrictions ($Z \to R$ but $Z \perp Y \mid X$), the parameter vector is point-identified.
+- **Vulnerability**: As demonstrated in Umbra's misspecification battery, these models are fragile to heavy-tailed errors, non-linearities, or exclusion violations ($Z \to Y$).
 
-### Umbra's Methodological Solution:
-Rather than returning vacuous infinities or making misleading finite sample-range substitutions, Umbra provides **Pattern-Mixture Sensitivity Analysis (Little, 1993)**. The unobserved departure is parameterized in standard deviation units ($\delta \in [-3\sigma, +3\sigma]$), allowing researchers to explore plausible departure scenarios and locate the exact **tipping point ($\delta^*$)** where substantive findings overturn.
+### 4. Continuous Sensitivity Analysis & Tipping Points (Little, 1993)
+- For general continuous data without compact physical support or valid instruments, Umbra avoids returning vacuous $(-\infty, +\infty)$ intervals or manufactured sample-extrema bounds.
+- Instead, Umbra provides **Pattern-Mixture Sensitivity Analysis**, parameterizing the unobserved counterfactual mean in residual standard deviation units:
+  $$Y_{\text{mis}} \sim \hat{\mu}_{\text{MAR}}(X) + \delta \cdot \hat{\sigma}_{\text{res}}$$
+- By varying $\delta \in [-3, +3]$ and computing the **tipping point ($\delta^*$)**, researchers discover the exact severity of MNAR departure required to overturn scientific conclusions.

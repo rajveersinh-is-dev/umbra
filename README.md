@@ -212,13 +212,14 @@ Evaluated across repeated Monte Carlo replications ($N=2,500, R=20$ per regime, 
 | **MNAR Tail-Censored** | Pattern Mixture ($\delta=0$) | -0.007 | 0.938 | 100.0% | 0.080 | 0.174 | 100% | 0.008s |
 | **MNAR Tail-Censored** | **Umbra (Auto)** | -0.016 | 1.163 | 95.0% | 0.081 | 0.228 | 100% | 1.842s |
 
-### Auto-Router Policy Performance (with Wilson 95% CIs)
-- **Overall Routing Accuracy**: `96.7%` (95% CI: `[91.8%, 98.7%]`, $N=150$ datasets)
-- **MCAR Preservation Accuracy**: `100.0%` (95% CI: `[86.7%, 100.0%]`, $N=25$) — Correctly routes to MICE, avoiding misspecified Heckman selection
-- **MAR Preservation Accuracy**: `100.0%` (95% CI: `[86.7%, 100.0%]`, $N=25$) — Correctly routes to MICE, preserving nominal ~95% coverage
-- **MNAR Risk Identification Sensitivity**: `95.0%` (95% CI: `[88.8%, 97.8%]`, $N=100$)
-- **False Alarm Rate**: `0.0%` (95% CI: `[0.0%, 7.1%]`, $N=50$) — MCAR/MAR data never falsely escalated to severe MNAR
-- **Missed Risk Rate**: `5.0%` (95% CI: `[2.2%, 11.2%]`, $N=100$) — Subtle MNAR indistinguishable from MAR in finite samples
+### Auto-Router Policy Performance (with Exact Wilson 95% CIs)
+Evaluated across a grid of 6 distinct DGP simulation mechanisms (MCAR, MAR, MNAR Self-Masking, MNAR Selection, MNAR Pattern Mixture, MNAR Tails):
+- **Overall Routing Accuracy**: `96.7%` (95% CI: `[92.4%, 98.6%]`, $145/150$ correct on $N=150$ grid; `[93.8%, 98.2%]`, $261/270$ correct on extended $N=270$ grid)
+- **MCAR Preservation Accuracy**: `100.0%` (95% CI: `[86.7%, 100.0%]`, $25/25$) — Correctly routes to MICE, avoiding misspecified Heckman selection
+- **MAR Preservation Accuracy**: `100.0%` (95% CI: `[86.7%, 100.0%]`, $25/25$) — Correctly routes to MICE, preserving nominal ~95% coverage
+- **MNAR Risk Identification Sensitivity**: `95.0%` (95% CI: `[88.8%, 97.8%]`, $95/100$)
+- **False Alarm Rate**: `0.0%` (95% CI: `[0.0%, 7.1%]`, $0/50$) — MCAR/MAR data never falsely escalated to selection modeling
+- **Missed Risk Rate**: `5.0%` (95% CI: `[2.2%, 11.2%]`, $5/100$) — Known finite-sample detection boundary concentrated under symmetric U-shaped tail dropout (`MNAR_TAILS`), where missingness preserves sample symmetry and observable linear shifts are absent
 
 Full reproducible scripts and detailed tables are in [`benchmarks/results.md`](benchmarks/results.md) and [`benchmarks/misspecification_results.md`](benchmarks/misspecification_results.md).
 
@@ -231,7 +232,7 @@ python -m benchmarks.reproduce_all --quick
 # Full research-grade Monte Carlo battery (N=2,500, R=20 per regime, all figures)
 python -m benchmarks.reproduce_all --full
 
-# End-to-end evaluation on 4 real-world empirical datasets
+# End-to-end evaluation on 4 domain-calibrated empirical benchmark datasets
 python scripts/reproduce_case_studies.py
 
 # Boundary misspecification stress battery (weak instruments, direct Z->Y paths, heavy tails)
