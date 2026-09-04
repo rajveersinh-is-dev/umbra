@@ -36,26 +36,34 @@ Silently imputing under an unverified MAR assumption produces confident point es
 
 ```mermaid
 flowchart TD
-    A[Raw Incomplete Dataset X] --> B[Multi-Signal Screening Battery]
-    
-    subgraph Diagnostics [Umbra Multi-Tier Diagnostics]
+    A["Raw Incomplete Dataset X"] --> B
+
+    subgraph Diagnostics ["Umbra Multi-Tier Diagnostic Battery"]
+        B["Multi-Signal Screening Battery"]
+        
         B --> B1["Little's MCAR Test (1988)<br/>Exact df = sum(p_j) - p"]
         B --> B2["Covariate Shift Analysis<br/>Two-Sample KS, Cohen's d, Cliff's delta"]
         B --> B3["Residual Tail Dependency<br/>Non-linear extreme quantile clustering"]
-        B --> B4["Shadow Variable Candidate Finder<br/>First-stage F-stat & partial correlation"]
+        B --> B4["Candidate Auxiliary Finder<br/>First-stage F-stat & partial correlation"]
+
+        B1 --> S["Multi-Signal Evidence Synthesis<br/>Composite MNAR Risk Assessment"]
+        B2 --> S
+        B3 --> S
+        B4 --> S
     end
-    
-    Diagnostics --> C{Evidence-Conditioned Router}
-    
-    C -->|MCAR / MAR Evidence| D[MAR Chained Equations / MICE<br/>PMM & Bayesian Ridge with Rubin's Rules]
-    C -->|MNAR + Valid Instrument| E[Heckman Two-Step Selection Imputer<br/>Log-space Inverse Mills Ratio Correction]
-    C -->|MNAR Without Instrument| F[Pattern-Mixture Model<br/>Explicit Departure Shifts delta]
-    
-    F --> G[Sensitivity Grid & Tipping Points<br/>Confidence Bands & Conclusion Fragility]
-    E --> H[Multi-Draw Rubin Pooling]
-    D --> H
-    G --> I[Honest Uncertainty Audit Report]
-    H --> I
+
+    S --> C{"Evidence-Conditioned<br/>Strategy Router"}
+
+    C -->|"MCAR / MAR Evidence"| D["MAR Chained Equations (MICE)<br/>PMM & Bayesian Ridge with Rubin's Rules"]
+    C -->|"MNAR + Candidate Instrument"| E["Heckman Two-Step Selection Imputer<br/>Log-space Inverse Mills + Bootstrap SEs"]
+    C -->|"MNAR Without Instrument"| F["Pattern-Mixture Model<br/>Explicit Departure Shifts &delta;"]
+
+    D --> H["Multi-Draw Rubin Pooling<br/>Barnard-Rubin Small-Sample df"]
+    E --> H
+    F --> G["Sensitivity Grid & Tipping Points<br/>Confidence Bands & Conclusion Fragility"]
+
+    H --> I["Honest Uncertainty & Diagnostic Audit Report"]
+    G --> I
 ```
 
 ---
