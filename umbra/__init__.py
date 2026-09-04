@@ -1,37 +1,76 @@
 """
-Umbra: MNAR-Aware Missing Data Imputation Library.
+Umbra: Honest Missing Data Diagnostics, Sensitivity Analysis & MNAR Imputation.
 
-Diagnose and honestly handle Not-Missing-At-Random (MNAR) data.
-Refuses to pretend that a single confident imputed point estimate is safe when it isn't.
+Mathematical Principle:
+True MNAR is generally unidentifiable from observed data alone.
+Umbra combines empirical diagnostics and sensitivity analyses to quantify evidence
+and assess how conclusions change under plausible departures from MAR.
 """
 
-from umbra.api import UmbraImputer
+from umbra.api import UmbraImputer, diagnose
 from umbra.diagnostics.mcar_test import LittleMCARResult, littles_mcar_test
-from umbra.diagnostics.mnar_risk_score import MNARRiskReport, assess_mnar_risk, diagnose_dataframe
-from umbra.diagnostics.pattern_analysis import PatternAnalysisReport, analyze_missingness_patterns
-from umbra.diagnostics.shadow_variable_finder import ShadowFinderReport, find_shadow_variables
+from umbra.diagnostics.mnar_risk_score import (
+    DiagnosticSignal,
+    MNARRiskReport,
+    assess_mnar_risk,
+    diagnose_dataframe,
+)
+from umbra.diagnostics.pattern_analysis import (
+    CovariateShift,
+    PatternAnalysisReport,
+    VariablePatternReport,
+    analyze_missingness_patterns,
+    compute_cliffs_delta,
+    compute_cohens_d,
+)
+from umbra.diagnostics.report import UmbraDiagnosticReport
+from umbra.diagnostics.shadow_variable_finder import (
+    AuxiliaryVariableCandidate,
+    AuxiliaryVariableReport,
+    ShadowFinderReport,
+    ShadowVariableCandidate,
+    find_shadow_variables,
+)
 from umbra.explain import diagnostics_to_markdown, explain_diagnostics, explain_sensitivity
 from umbra.imputers.heckman_selection import HeckmanSelectionImputer
-from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
+from umbra.imputers.mar_chained_equations import (
+    MARChainedEquationsImputer,
+    rubins_rules,
+)
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
-from umbra.sensitivity.grid_analysis import SensitivityReport, TippingPoint, run_sensitivity_grid
+from umbra.sensitivity.grid_analysis import (
+    SensitivityReport,
+    TippingPoint,
+    run_sensitivity_grid,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "UmbraImputer",
+    "diagnose",
+    "UmbraDiagnosticReport",
     "littles_mcar_test",
     "LittleMCARResult",
     "analyze_missingness_patterns",
     "PatternAnalysisReport",
+    "VariablePatternReport",
+    "CovariateShift",
+    "compute_cohens_d",
+    "compute_cliffs_delta",
     "find_shadow_variables",
+    "AuxiliaryVariableCandidate",
+    "AuxiliaryVariableReport",
+    "ShadowVariableCandidate",
     "ShadowFinderReport",
     "assess_mnar_risk",
     "diagnose_dataframe",
     "MNARRiskReport",
+    "DiagnosticSignal",
     "MARChainedEquationsImputer",
     "HeckmanSelectionImputer",
     "PatternMixtureImputer",
+    "rubins_rules",
     "run_sensitivity_grid",
     "SensitivityReport",
     "TippingPoint",

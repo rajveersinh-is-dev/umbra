@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use Umbra in your research, please cite it as below."
+title: "Umbra: Honest Missing Data Diagnostics, Sensitivity Analysis & MNAR Imputation"
+abstract: "A scikit-learn compatible Python library that diagnoses Not-Missing-At-Random (MNAR) data mechanisms and provides automated sensitivity grid and tipping-point analysis rather than false-confidence point estimates."
+version: 0.2.0
+date-released: 2026-09-04
+license: MIT
+repository-code: "https://github.com/Raj123-0/umbra"
+authors:
+  - family-names: "Umbra Research Team"
+    given-names: "Open Source Contributors"
+keywords:
+  - "missing data"
+  - "imputation"
+  - "missing not at random"
+  - "mnar"
+  - "sensitivity analysis"
+  - "heckman selection"
+  - "pattern mixture models"
+  - "reproducible research"

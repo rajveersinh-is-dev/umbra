@@ -1,50 +1,58 @@
 """
-Unified Scikit-Learn Compatible API for Umbra.
+Unified Scikit-Learn Native API for Umbra.
 
-Provides `UmbraImputer`, a drop-in scikit-learn transformer that diagnoses
-missingness mechanisms during `fit()` and executes honest, MNAR-aware
-imputation during `transform()`.
+Provides `UmbraImputer`, a drop-in scikit-learn transformer that executes
+statistically grounded diagnostics during `fit()` and executes honest,
+MNAR-aware imputation during `transform()`.
+
+Also exposes the standalone `diagnose(X)` function returning an
+`UmbraDiagnosticReport`.
 """
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_is_fitted
 
 from umbra.diagnostics.mnar_risk_score import MNARRiskReport, diagnose_dataframe
+from umbra.diagnostics.report import diagnose
 from umbra.explain import explain_diagnostics
 from umbra.imputers.heckman_selection import HeckmanSelectionImputer
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
 from umbra.sensitivity.grid_analysis import SensitivityReport, run_sensitivity_grid
 
+__all__ = ["UmbraImputer", "diagnose"]
+
 
 class UmbraImputer(BaseEstimator, TransformerMixin):
-    """
-    Scikit-learn compatible MNAR-aware missing data imputer.
+    """Scikit-learn compliant MNAR-aware missing data imputer.
 
     Parameters
     ----------
     strategy : str, default='auto'
         Imputation strategy:
-        - 'auto': Diagnoses each variable's missingness risk. Plausibly MCAR/MAR variables
-                  are imputed using chained equations (MICE). Variables flagged as high MNAR risk
-                  use Heckman selection (if shadow variables exist) or pattern-mixture models,
-                  and attach sensitivity intervals.
-        - 'mar': Forces standard MICE chained equations for all variables.
-        - 'heckman': Uses Heckman selection models for all incomplete variables.
-        - 'pattern_mixture': Uses pattern-mixture models with specified delta.
+        - 'auto': Data-driven scientific routing. MCAR and MAR variables are imputed
+                  using chained equations (MICE). Variables with empirical evidence
+                  consistent with MNAR use Heckman selection (if auxiliary shadow
+                  instruments exist) or pattern-mixture sensitivity models.
+        - 'mar': Standard MICE chained equations for all variables.
+        - 'heckman': Heckman selection model for incomplete variables.
+        - 'pattern_mixture': Pattern-mixture model with specified delta shift.
     delta : float, default=0.0
-        Sensitivity parameter for pattern-mixture models (in standard deviations).
+        Sensitivity parameter for pattern-mixture models (in residual standard deviations).
     shadow_cols : Optional[Dict[str, str]], default=None
         Mapping of {target_col: shadow_var} providing exclusion restrictions for Heckman models.
-        If None and strategy='auto', promising candidates discovered by diagnostics are used.
+        If None and strategy='auto', candidate auxiliary variables discovered by diagnostics are used.
     run_sensitivity : bool, default=True
-        Whether to compute sensitivity grid analysis for medium/high MNAR risk variables.
+        Whether to compute sensitivity grid analysis for variables flagged with MNAR evidence.
+    n_imputations : int, default=1
+        Number of stochastic multiple imputations generated.
     random_state : Optional[int], default=42
-        Reproducibility seed.
+        Seed for reproducibility.
     verbose : bool, default=False
         Whether to print diagnostic summaries upon fitting.
     """
@@ -55,6 +63,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         delta: float = 0.0,
         shadow_cols: Optional[Dict[str, str]] = None,
         run_sensitivity: bool = True,
+        n_imputations: int = 1,
         random_state: Optional[int] = 42,
         verbose: bool = False,
     ):
@@ -62,35 +71,37 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         self.delta = delta
         self.shadow_cols = shadow_cols
         self.run_sensitivity = run_sensitivity
+        self.n_imputations = n_imputations
         self.random_state = random_state
         self.verbose = verbose
 
-        # Fitted attributes
-        self.diagnostics_: Dict[str, MNARRiskReport] = {}
-        self.sensitivity_reports_: Dict[str, SensitivityReport] = {}
-        self.imputers_: Dict[str, BaseEstimator] = {}
-        self.columns_: List[str] = []
-        self.is_fitted_: bool = False
-
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y=None):
-        """
-        Fit UmbraImputer on data:
-        1. Runs diagnostic battery (Little's test, covariate shift, tail dependency).
+        """Fit UmbraImputer on data:
+        1. Runs empirical diagnostic battery (Little's test, covariate shift, tail dependency).
         2. Assigns appropriate imputer per column based on empirical evidence.
         3. Runs sensitivity grid analysis for MNAR-flagged columns.
         """
+        # Validate parameters as per sklearn conventions
+        valid_strategies = ["auto", "mar", "heckman", "pattern_mixture"]
+        if self.strategy not in valid_strategies:
+            raise ValueError(
+                f"Invalid strategy '{self.strategy}'. Must be one of {valid_strategies}."
+            )
+
         df = self._to_dataframe(X).copy()
-        self.columns_ = list(df.columns)
-        self.diagnostics_ = {}
-        self.sensitivity_reports_ = {}
-        self.imputers_ = {}
+        self.feature_names_in_ = list(df.columns)
+        self.n_features_in_ = len(self.feature_names_in_)
+        self.diagnostics_: Dict[str, MNARRiskReport] = {}
+        self.sensitivity_reports_: Dict[str, SensitivityReport] = {}
+        self.imputers_: Dict[str, BaseEstimator] = {}
+        self.routing_decisions_: Dict[str, str] = {}
 
         incomplete_cols = [c for c in df.columns if df[c].isna().any()]
         if not incomplete_cols:
             self.is_fitted_ = True
             return self
 
-        # 1. Run full diagnostics
+        # 1. Run empirical diagnostics
         self.diagnostics_ = diagnose_dataframe(df)
 
         if self.verbose:
@@ -104,45 +115,64 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
 
         # 2. Select and fit imputers per column
         if self.strategy == "mar":
-            mar_imputer = MARChainedEquationsImputer(random_state=self.random_state)
+            mar_imputer = MARChainedEquationsImputer(
+                n_imputations=self.n_imputations, random_state=self.random_state
+            )
             mar_imputer.fit(df)
             self.imputers_["_all_mar"] = mar_imputer
+            for col in incomplete_cols:
+                self.routing_decisions_[col] = "mar_chained_equations"
 
         elif self.strategy == "heckman":
             heck_imputer = HeckmanSelectionImputer(
                 shadow_cols=effective_shadows,
+                n_imputations=self.n_imputations,
                 random_state=self.random_state,
             )
             heck_imputer.fit(df)
             self.imputers_["_all_heckman"] = heck_imputer
+            for col in incomplete_cols:
+                self.routing_decisions_[col] = "heckman_selection"
 
         elif self.strategy == "pattern_mixture":
             pm_imputer = PatternMixtureImputer(
                 delta=self.delta,
+                n_imputations=self.n_imputations,
                 random_state=self.random_state,
             )
             pm_imputer.fit(df)
             self.imputers_["_all_pattern_mixture"] = pm_imputer
+            for col in incomplete_cols:
+                self.routing_decisions_[col] = "pattern_mixture"
 
         elif self.strategy == "auto":
-            # Hybrid routing:
+            # Data-driven scientific routing:
+            # Under MCAR / MAR evidence -> MICE
+            # Under MNAR evidence -> Heckman (if instrument exists) or Pattern Mixture
             mar_cols = []
             heckman_cols = []
             pattern_cols = []
 
             for col in incomplete_cols:
                 col_rep = self.diagnostics_.get(col)
-                if col_rep is None or getattr(col_rep, "risk_level", None) == "LOW":
+                if col_rep is None or col_rep.risk_level in ("LOW", "MEDIUM"):
+                    # Low or moderate risk without extreme tail dependency -> MAR chained equations
                     mar_cols.append(col)
-                elif col_rep.risk_level in ("MEDIUM", "HIGH"):
+                    self.routing_decisions_[col] = "mar_chained_equations"
+                else:
+                    # HIGH evidence consistent with MNAR
                     if effective_shadows.get(col):
                         heckman_cols.append(col)
+                        self.routing_decisions_[col] = "heckman_selection"
                     else:
                         pattern_cols.append(col)
+                        self.routing_decisions_[col] = "pattern_mixture"
 
-            # Fit MAR imputer for low-risk columns
+            # Fit MAR imputer for low/medium risk columns
             if mar_cols:
-                mar_imp = MARChainedEquationsImputer(random_state=self.random_state)
+                mar_imp = MARChainedEquationsImputer(
+                    n_imputations=self.n_imputations, random_state=self.random_state
+                )
                 mar_imp.fit(df)
                 self.imputers_["mar"] = mar_imp
 
@@ -151,6 +181,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
                 heck_imp = HeckmanSelectionImputer(
                     target_cols=heckman_cols,
                     shadow_cols=effective_shadows,
+                    n_imputations=self.n_imputations,
                     random_state=self.random_state,
                 )
                 heck_imp.fit(df)
@@ -161,18 +192,19 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
                 pm_imp = PatternMixtureImputer(
                     delta=self.delta,
                     target_cols=pattern_cols,
+                    n_imputations=self.n_imputations,
                     random_state=self.random_state,
                 )
                 pm_imp.fit(df)
                 self.imputers_["pattern_mixture"] = pm_imp
 
-            # Warn user if any column is high risk so they know not to treat point estimates as confident
+            # Inform user if high MNAR risk was detected
             high_risk_cols = [c for c, r in self.diagnostics_.items() if r.risk_level == "HIGH"]
             if high_risk_cols:
                 warnings.warn(
-                    f"Umbra detected HIGH risk of Not-Missing-At-Random (MNAR) in columns: {high_risk_cols}. "
-                    "Single-value point imputation cannot eliminate selection bias. "
-                    "Inspect `imputer.sensitivity_reports_` for honest bounds.",
+                    f"Umbra detected evidence consistent with Not-Missing-At-Random (MNAR) in: {high_risk_cols}. "
+                    "Because true MNAR is not identifiable from observed data alone, point estimates cannot "
+                    "eliminate selection bias. Inspect `imputer.sensitivity_reports_` for honest bounds.",
                     UserWarning,
                 )
 
@@ -187,33 +219,30 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         self.is_fitted_ = True
         return self
 
+    @property
+    def strategy_map_(self) -> Dict[str, str]:
+        """Map of column names to selected imputation strategy shorthand."""
+        out = {}
+        for col, decision in self.routing_decisions_.items():
+            if "heckman" in decision:
+                out[col] = "heckman"
+            elif "mar" in decision:
+                out[col] = "mar"
+            else:
+                out[col] = "pattern_mixture"
+        return out
+
     def transform(
         self,
         X: Union[pd.DataFrame, np.ndarray],
         return_diagnostics: bool = False,
     ) -> Union[
-        pd.DataFrame, np.ndarray, Tuple[Union[pd.DataFrame, np.ndarray], Dict[str, MNARRiskReport]]
+        pd.DataFrame,
+        np.ndarray,
+        Tuple[Union[pd.DataFrame, np.ndarray], Dict[str, MNARRiskReport]],
     ]:
-        """
-        Impute missing values in X.
-
-        Parameters
-        ----------
-        X : pd.DataFrame or np.ndarray
-            Data to impute.
-        return_diagnostics : bool, default=False
-            If True, returns (X_imputed, diagnostics_dict).
-
-        Returns
-        -------
-        X_imputed : pd.DataFrame or np.ndarray
-            Completed dataset.
-        diagnostics : Dict[str, MNARRiskReport] (optional)
-            Diagnostic assessments per variable.
-        """
-        if not self.is_fitted_:
-            raise RuntimeError("UmbraImputer must be fitted before calling transform().")
-
+        """Impute missing values in X."""
+        check_is_fitted(self, "is_fitted_")
         is_numpy = isinstance(X, np.ndarray)
         df = self._to_dataframe(X).copy()
 
@@ -256,8 +285,16 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         """Get the sensitivity analysis report for a specific column."""
         return self.sensitivity_reports_.get(column)
 
+    def get_feature_names_out(self, input_features=None):
+        """Get output feature names for transformation."""
+        check_is_fitted(self, "is_fitted_")
+        return np.asarray(self.feature_names_in_)
+
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         if isinstance(X, pd.DataFrame):
             return X
-        cols = self.columns_ if self.columns_ else [f"col_{i}" for i in range(X.shape[1])]
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_:
+            cols = self.feature_names_in_
+        else:
+            cols = [f"col_{i}" for i in range(X.shape[1])]
         return pd.DataFrame(X, columns=cols)

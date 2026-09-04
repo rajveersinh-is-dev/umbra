@@ -13,13 +13,14 @@ import click
 import pandas as pd
 from rich.console import Console
 
+from umbra import __version__ as umbra_version
 from umbra.api import UmbraImputer
 from umbra.diagnostics.mnar_risk_score import diagnose_dataframe
 from umbra.explain import diagnostics_to_markdown, explain_diagnostics, explain_sensitivity
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="umbra")
+@click.version_option(version=umbra_version, prog_name="umbra")
 def main():
     """Umbra: MNAR-Aware Missing Data Diagnostic and Imputation CLI."""
     pass
