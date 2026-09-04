@@ -580,6 +580,9 @@ if __name__ == "__main__":
         f"Overall Accuracy    : {summary.overall_accuracy:.1%} (95% CI: [{summary.overall_accuracy_ci[0]:.1%}, {summary.overall_accuracy_ci[1]:.1%}])"
     )
     print(
+        f"Dispatch Precision  : {summary.dispatch_precision:.1%} (95% CI: [{summary.dispatch_precision_ci[0]:.1%}, {summary.dispatch_precision_ci[1]:.1%}])"
+    )
+    print(
         f"MCAR Correct Rate   : {summary.mcar_correct_rate:.1%} (95% CI: [{summary.mcar_correct_rate_ci[0]:.1%}, {summary.mcar_correct_rate_ci[1]:.1%}])"
     )
     print(

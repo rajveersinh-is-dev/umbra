@@ -91,6 +91,8 @@ def test_router_strict_dispatch_and_expected_field():
     assert res_mcar["expected_dispatch"] == "mar_chained_equations"
     assert res_mcar["is_correct"] is True
 
-    res_mnar = evaluate_single_routing("MNAR_SELECTION", n_samples=300, missing_rate=0.30, random_state=42)
+    res_mnar = evaluate_single_routing(
+        "MNAR_SELECTION", n_samples=300, missing_rate=0.30, random_state=42
+    )
     assert "expected_dispatch" in res_mnar
     assert isinstance(res_mnar["is_correct"], bool)

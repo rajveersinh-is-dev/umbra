@@ -300,7 +300,9 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         n_m = max(1, self.n_imputations)
         if n_m == 1:
             res = self.transform(df_base)
-            return [res if isinstance(res, pd.DataFrame) else pd.DataFrame(res, columns=df_base.columns)]
+            return [
+                res if isinstance(res, pd.DataFrame) else pd.DataFrame(res, columns=df_base.columns)
+            ]
 
         sub_m = {}
         for key, imp in self.imputers_.items():

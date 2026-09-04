@@ -27,7 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Candidate Variable Terminology**: Purged all claims of "discovering" or "proving" instruments from observational data alone. Auxiliary variables are strictly labeled as candidate variables, and exclusion restrictions are documented as inherently untestable without domain knowledge.
 - **Stock-Yogo Weak Instrument Screening**: Added formal `WeakInstrumentWarning` when candidate instrument first-stage $F \le 10$.
 - **Router Policy Comparison**: Evaluated Umbra Auto side-by-side with Always MICE, Always Heckman, Complete-Case, and Oracle routes across all regimes.
-- **Code Coverage**: Increased test suite to 73 tests passing at >88% coverage with zero mypy or ruff errors.
+- **Code Coverage**: Increased test suite to 77 tests passing at >88% coverage with zero mypy or ruff errors.
+- **Rubin-Pooled Variance**: Implemented Rubin-pooled multiple imputation variance with Barnard-Rubin (1999) small-sample degrees of freedom.
+- **Heckman Bootstrap Standard Errors**: Implemented paired bootstrap standard errors (`n_bootstrap_se`) propagating first-stage probit estimation uncertainty, with explicit `HeckmanSEWarning` and NaN propagation on Ridge fallback.
+- **Strict Router Evaluation**: Implemented dispatch-level correctness criteria and dispatch precision metrics in router benchmarks.
+- **Reproducible Artifact Generation**: Added `scripts/generate_paper_tables.py` and `scripts/calibrate_thresholds.py`.
+- **Known Limitations**: Replaced self-assessment documentation with `docs/limitations.md`.
 
 ### Fixed
 - Non-numeric and categorical column crashes in `shadow_variable_finder`, `mnar_risk_score`, and `pattern_mixture`.

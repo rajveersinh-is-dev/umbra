@@ -79,6 +79,12 @@ jobs:
       run: |
         python scripts/reproduce_case_studies.py
 
+    - name: Verify Paper Tables Generation
+      run: |
+        python scripts/generate_paper_tables.py --quick
+        test -f paper/tables/benchmark_table.md
+        test -f paper/tables/benchmark_raw.csv
+
     - name: Build Wheel & Sdist
       run: |
         python -m build

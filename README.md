@@ -249,7 +249,6 @@ python -m benchmarks.misspecification_benchmark
 - **[Claims & Theorems Audit](docs/claims_audit.md)**: Epistemic classification of every mathematical claim across the codebase.
 - **[Scientific Specification & Mathematical Foundations](docs/scientific_specification.md)**: Formal mathematical notation, Molenberghs non-identifiability theorem, 4-tier epistemic architecture, and algorithmic derivations.
 - **[Negative Results & Methodological Failure Modes](docs/failure_modes.md)**: Regimes where diagnostics break down (symmetric U-shaped tails, high dimensions $p > n$, weak instruments $F < 10$, non-normal selection errors).
-- **[Peer Review & Scientific Hardening Audit](docs/peer_review_audit.md)**: Multi-disciplinary simulated peer review across mathematical statistics, econometrics, ML engineering, and reproducibility.
 - **[Datasheet for Datasets](data/DATASHEET.md)**: Gebru et al. (2021) specification for CPS, NHANES, California Housing, and Clinical Trial benchmarks.
 
 ---

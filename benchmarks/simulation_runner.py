@@ -12,7 +12,7 @@ Measures:
 """
 
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -267,10 +267,14 @@ def evaluate_imputer_replication(
         b_age = float(pooled_beta[0])
         b_edu = float(pooled_beta[1])
         b_age_cov = bool(
-            b_age - t_crit_beta[0] * se_beta[0] <= true_beta_age <= b_age + t_crit_beta[0] * se_beta[0]
+            b_age - t_crit_beta[0] * se_beta[0]
+            <= true_beta_age
+            <= b_age + t_crit_beta[0] * se_beta[0]
         )
         b_edu_cov = bool(
-            b_edu - t_crit_beta[1] * se_beta[1] <= true_beta_edu <= b_edu + t_crit_beta[1] * se_beta[1]
+            b_edu - t_crit_beta[1] * se_beta[1]
+            <= true_beta_edu
+            <= b_edu + t_crit_beta[1] * se_beta[1]
         )
 
         return ReplicationResult(

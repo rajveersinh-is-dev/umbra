@@ -8,7 +8,7 @@ import pytest
 
 from scripts.build_synthetic_benchmarks import generate_benchmark_battery
 from umbra.imputers.deep_generative_mnar import HAS_TORCH, DeepGenerativeMNARImputer
-from umbra.imputers.heckman_selection import HeckmanSEWarning, HeckmanSelectionImputer
+from umbra.imputers.heckman_selection import HeckmanSelectionImputer, HeckmanSEWarning
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
 
@@ -123,7 +123,9 @@ def test_heckman_bootstrap_se_variance_inflation():
     se_boot = imp_boot.models_["y"]["std_errors"]
 
     # At least some or all parameters must reflect variance inflation (Murphy-Topel effect)
-    assert np.all(se_boot > se_naive), f"Expected bootstrap SEs > naive OLS SEs, got {se_boot} vs {se_naive}"
+    assert np.all(se_boot > se_naive), (
+        f"Expected bootstrap SEs > naive OLS SEs, got {se_boot} vs {se_naive}"
+    )
 
 
 def test_heckman_ridge_fallback_warning_and_nans():

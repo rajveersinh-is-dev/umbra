@@ -30,7 +30,6 @@ import statsmodels.api as sm
 from scipy import stats
 from sklearn.base import BaseEstimator, TransformerMixin
 
-
 __all__ = ["HeckmanSelectionImputer", "WeakInstrumentWarning", "HeckmanSEWarning"]
 
 
@@ -314,7 +313,9 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
 
             try:
                 if np.linalg.matrix_rank(design_obs) < design_obs.shape[1]:
-                    raise np.linalg.LinAlgError("Near-singular design matrix in Heckman second stage.")
+                    raise np.linalg.LinAlgError(
+                        "Near-singular design matrix in Heckman second stage."
+                    )
                 ols_res = sm.OLS(y_obs, design_obs).fit()
                 params = ols_res.params
                 if self.n_bootstrap_se > 0:

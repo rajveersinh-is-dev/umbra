@@ -259,6 +259,9 @@ def assess_mnar_risk(
     pattern_report: Optional[PatternAnalysisReport] = None,
     shadow_report: Optional[AuxiliaryVariableReport] = None,
     alpha: float = 0.05,
+    high_risk_composite_threshold: float = 0.50,
+    medium_risk_composite_threshold: float = 0.25,
+    tail_risk_threshold: float = 0.25,
 ) -> MNARRiskReport:
     """Synthesize empirical data diagnostics into an honest MNAR risk assessment.
 
@@ -387,7 +390,27 @@ def assess_mnar_risk(
     total_weight = sum(s.weight for s in empirical_signals)
     composite = sum(s.score * s.weight for s in empirical_signals) / total_weight
 
-    # SCIENTIFIC ROUTING LOGIC:
+    # -------------------------------------------------------------------------
+    # SCIENTIFIC ROUTING LOGIC & THRESHOLD CALIBRATION:
+    # -------------------------------------------------------------------------
+    # Threshold values used below:
+    #   - Composite risk score >= 0.50 (with tail_score >= 0.25): HIGH MNAR risk
+    #   - Composite risk score >= 0.25: MEDIUM risk
+    #   - Composite risk score < 0.25: LOW risk (compatible with MCAR/MAR)
+    #
+    # IMPORTANT METHODOLOGICAL NOTE:
+    # These threshold cutoffs (0.50 and 0.25) are heuristic operational defaults
+    # chosen by empirical inspection across synthetic benchmark DGPs (see benchmarks/dgps.py),
+    # not by formal analytical or Bayesian optimization.
+    #
+    # In observational applications where the relative cost of false alarms (unnecessary
+    # sensitivity bounds or instrumental modeling) versus missed risks (biased point estimates
+    # with under-covered CIs) is asymmetric, practitioners should consider re-calibrating
+    # these thresholds. Recalibration workflows are supported via:
+    #   - benchmarks/router_benchmark.py (Monte Carlo evaluation across regimes)
+    #   - scripts/calibrate_thresholds.py (threshold sweep and Pareto frontier generation)
+    # -------------------------------------------------------------------------
+
     # Under MCAR (no shifts, MCAR not rejected), risk MUST be LOW regardless of column name!
     if not mcar_rejected and not shift_triggered and not tail_triggered:
         risk_level = "LOW"
@@ -398,12 +421,12 @@ def assess_mnar_risk(
         recommended_strategy = "mnar_heckman" if has_shadow else "mnar_pattern_mixture_sensitivity"
     elif shift_triggered or mcar_rejected:
         # Covariates explain missingness; tail dependency is low -> MAR compatible
-        if composite >= 0.50 and tail_score >= 0.25:
+        if composite >= high_risk_composite_threshold and tail_score >= tail_risk_threshold:
             risk_level = "HIGH"
             recommended_strategy = (
                 "mnar_heckman" if has_shadow else "mnar_pattern_mixture_sensitivity"
             )
-        elif composite >= 0.25:
+        elif composite >= medium_risk_composite_threshold:
             risk_level = "MEDIUM"
             recommended_strategy = "mnar_pattern_mixture_sensitivity"
         else:
@@ -480,7 +503,13 @@ def assess_mnar_risk(
     )
 
 
-def diagnose_dataframe(data: pd.DataFrame, alpha: float = 0.05) -> Dict[str, MNARRiskReport]:
+def diagnose_dataframe(
+    data: pd.DataFrame,
+    alpha: float = 0.05,
+    high_risk_composite_threshold: float = 0.50,
+    medium_risk_composite_threshold: float = 0.25,
+    tail_risk_threshold: float = 0.25,
+) -> Dict[str, MNARRiskReport]:
     """Run full diagnostic screening across all incomplete columns in data."""
     if not isinstance(data, pd.DataFrame):
         data = pd.DataFrame(data)
@@ -504,6 +533,9 @@ def diagnose_dataframe(data: pd.DataFrame, alpha: float = 0.05) -> Dict[str, MNA
             pattern_report=pattern_rep,
             shadow_report=shadow_rep,
             alpha=alpha,
+            high_risk_composite_threshold=high_risk_composite_threshold,
+            medium_risk_composite_threshold=medium_risk_composite_threshold,
+            tail_risk_threshold=tail_risk_threshold,
         )
         reports[col] = rep
 

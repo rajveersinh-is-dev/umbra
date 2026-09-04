@@ -1,5 +1,5 @@
 """
-Reproduce End-to-End Empirical Case Studies across 4 Realistic Domains.
+Reproduce End-to-End Semi-Synthetic Case Studies across 4 Realistic Domains.
 
 Evaluates:
 1. CPS Labor Economics Income Survey (Survey nonresponse)
@@ -211,7 +211,7 @@ def main():
         all_summaries.append(res)
 
     print("\n" + "=" * 75)
-    print("All 4 empirical case studies successfully executed and verified.")
+    print("All 4 semi-synthetic case studies successfully executed and verified.")
     print("=" * 75)
 
 

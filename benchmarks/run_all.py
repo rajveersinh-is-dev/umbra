@@ -9,7 +9,7 @@ Executes:
 2. Coverage Probability Evaluation for 80%, 90%, 95% Confidence Intervals.
 3. Independent Auto Router Accuracy Benchmark.
 4. Runtime Scaling vs N and p.
-5. Empirical Case Studies (CPS, NHANES, California Housing, Clinical Trial).
+5. Semi-Synthetic Case Studies (CPS, NHANES, California Housing, Clinical Trial).
 6. Regenerates publication-grade `benchmarks/results.md`.
 """
 

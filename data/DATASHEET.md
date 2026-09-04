@@ -1,6 +1,6 @@
 # Umbra Empirical & Benchmark Datasets Datasheet
 
-This datasheet follows the *Datasheets for Datasets* standard (Gebru et al., 2021) and documents the four empirical case studies and synthetic simulation benchmarks included in Umbra.
+This datasheet follows the *Datasheets for Datasets* standard (Gebru et al., 2021) and documents the four semi-synthetic case studies and synthetic simulation benchmarks included in Umbra.
 
 ---
 
