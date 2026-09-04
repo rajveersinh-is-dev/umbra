@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "umbra-impute"
+version = "0.1.0"
+description = "Diagnose and honestly handle Not-Missing-At-Random (MNAR) data — scikit-learn compatible"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Raj", email = "raj@example.com" }
+]
+requires-python = ">=3.10"
+keywords = [
+    "missing-data",
+    "imputation",
+    "mnar",
+    "missing-not-at-random",
+    "heckman",
+    "pattern-mixture",
+    "sensitivity-analysis",
+    "scikit-learn",
+    "statistics"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.3.0",
+    "pandas>=2.0.0",
+    "statsmodels>=0.14.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+deep = [
+    "torch>=2.0.0",
+]
+demo = [
+    "streamlit>=1.30.0",
+    "matplotlib>=3.7.0",
+    "altair>=5.0.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.4.0",
+    "mypy>=1.8.0",
+    "nbconvert>=7.0.0",
+]
+all = [
+    "torch>=2.0.0",
+    "streamlit>=1.30.0",
+    "matplotlib>=3.7.0",
+    "altair>=5.0.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.4.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+umbra = "umbra.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Raj123-0/umbra"
+Repository = "https://github.com/Raj123-0/umbra"
+"Bug Tracker" = "https://github.com/Raj123-0/umbra/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["umbra"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
