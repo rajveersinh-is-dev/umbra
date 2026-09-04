@@ -70,6 +70,7 @@ def main():
         n_samples=n_samples,
         missing_rate=0.30,
         base_seed=42,
+        quick=is_quick,
     )
 
     # 2. Write Leaderboard

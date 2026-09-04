@@ -56,7 +56,7 @@ def main():
         quick_mode = args.quick
 
     if quick_mode:
-        n_samples = 1000
+        n_samples = 500
         n_replications = 2
         print(f"--> Running QUICK verification: N={n_samples}, R={n_replications} per regime...")
     else:
@@ -65,11 +65,12 @@ def main():
         print(f"--> Running FULL research suite: N={n_samples}, R={n_replications} per regime...")
 
     t0 = time.perf_counter()
-    summaries, router_summary, scaling_n, scaling_p = run_full_benchmark_suite(
+    summaries, router_summary, router_vs_baselines, scaling_n, scaling_p = run_full_benchmark_suite(
         n_replications=n_replications,
         n_samples=n_samples,
         missing_rate=0.30,
         base_seed=args.seed,
+        quick=quick_mode,
     )
     elapsed = time.perf_counter() - t0
 
@@ -78,7 +79,9 @@ def main():
         if args.output
         else root_dir / "benchmarks" / ("quick_results.md" if quick_mode else "results.md")
     )
-    format_markdown_leaderboard(summaries, router_summary, scaling_n, scaling_p, out_file)
+    format_markdown_leaderboard(
+        summaries, router_summary, router_vs_baselines, scaling_n, scaling_p, out_file
+    )
 
     print("\n" + "=" * 60)
     print(f"Reproduction complete in {elapsed:.1f}s.")

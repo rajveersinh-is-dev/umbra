@@ -33,12 +33,13 @@ def run_full_benchmark_suite(
     n_samples: int = 2500,
     missing_rate: float = 0.30,
     base_seed: int = 42,
+    quick: bool = False,
 ) -> Tuple[List[MonteCarloSummary], Any, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     print("=" * 70)
     print("UMBRA RIGOROUS EMPIRICAL BENCHMARK SUITE")
     print(f"Software Version: Umbra v{umbra_ver} | Python: {sys.version.split()[0]}")
     print(
-        f"Configuration: N={n_samples:,}, Nominal Missing Rate={missing_rate:.0%}, Replications={n_replications}"
+        f"Configuration: N={n_samples:,}, Nominal Missing Rate={missing_rate:.0%}, Replications={n_replications} (quick={quick})"
     )
     print("=" * 70)
 
@@ -71,32 +72,39 @@ def run_full_benchmark_suite(
 
     # 2. Independent Auto Router Benchmark
     print("\nExecuting independent Auto Router classification benchmark...")
+    router_reps = 1 if quick else 5
+    router_sizes = [500] if quick else [500, 1000, 2500]
+    router_rates = [0.30] if quick else [0.20, 0.30, 0.40]
     router_res = benchmark_auto_router(
-        n_replications_per_cell=5,
-        sample_sizes=[500, 1000, 2500],
-        missing_rates=[0.20, 0.30, 0.40],
+        n_replications_per_cell=router_reps,
+        sample_sizes=router_sizes,
+        missing_rates=router_rates,
         base_seed=base_seed,
     )
 
     # 3. Router Policy vs Fixed Baselines (Always MICE, Always Heckman, Oracle Route)
     print("\nEvaluating Auto Router policy vs fixed baseline strategies...")
+    cmp_reps = 1 if quick else 5
+    cmp_samples = 300 if quick else 1500
     df_router_vs_baselines = compare_router_against_baselines(
-        n_replications=5,
-        n_samples=1500,
+        n_replications=cmp_reps,
+        n_samples=cmp_samples,
         missing_rate=missing_rate,
         base_seed=base_seed,
     )
 
     # 4. Performance Scaling Benchmarks
     print("\nMeasuring runtime scaling as a function of sample size N...")
+    scaling_sizes = [200, 500] if quick else [500, 1000, 2500, 5000]
     df_scaling_n = benchmark_runtime_vs_n(
-        sample_sizes=[500, 1000, 2500, 5000],
+        sample_sizes=scaling_sizes,
         random_state=base_seed,
     )
 
     print("Measuring runtime scaling as a function of feature dimension p...")
+    scaling_dims = [4, 8] if quick else [4, 8, 16, 32]
     df_scaling_p = benchmark_runtime_vs_dimension(
-        feature_counts=[4, 8, 16, 32],
+        feature_counts=scaling_dims,
         random_state=base_seed,
     )
 
