@@ -701,18 +701,9 @@ def plot_runtime_scaling(output_dir: Path) -> None:
     save_plot(fig, "runtime_scaling_n_p", output_dir)
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate publication-grade benchmark figures for Umbra."
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="benchmarks/figures",
-        help="Target directory for PNG and PDF figures (default: benchmarks/figures)",
-    )
-    args = parser.parse_args()
-
-    out_dir = ensure_output_dir(args.output_dir)
+def generate_all_figures(output_dir: str = "benchmarks/figures"):
+    """Generate all 7 publication figures programmatically."""
+    out_dir = ensure_output_dir(output_dir)
     print(f"Generating 7 publication figures in: {out_dir.resolve()} (PNG @ 300 DPI + Vector PDF)")
     t0 = time.perf_counter()
 
@@ -725,6 +716,19 @@ def main():
     plot_runtime_scaling(out_dir)
 
     print(f"\nAll 7 publication figures successfully generated in {time.perf_counter() - t0:.1f}s.")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate publication-grade benchmark figures for Umbra."
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="benchmarks/figures",
+        help="Target directory for PNG and PDF figures (default: benchmarks/figures)",
+    )
+    args = parser.parse_args()
+    generate_all_figures(args.output_dir)
 
 
 if __name__ == "__main__":

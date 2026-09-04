@@ -7,7 +7,7 @@
 > - **Downstream Parameter Recovery** tests whether regression coefficients ($\beta_{age}, \beta_{education}$) are preserved without attenuation or sign distortion.
 > - *No cherry-picked seeds or manufactured values*: Every row is populated directly from executed empirical simulations.
 
-*Generated: 2026-09-04 20:19:32 | Umbra Version: v0.2.0 | Platform: Python 3.12.14*
+*Generated: 2026-09-04 21:04:19 | Umbra Version: v0.2.0 | Platform: Python 3.12.14*
 
 ---
 
@@ -15,48 +15,48 @@
 
 | Missingness Regime | Method | Overall Mean Bias | Cell RMSE | 95% Coverage | 95% CI Width | Downstream Beta Error | Convergence | Avg Runtime |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| MCAR | Complete-Case | -0.002 | 1.405 | 100.0% | 0.131 | 0.105 | 100% | 0.001s |
-| MCAR | Naive Mean | -0.002 | 1.405 | 100.0% | 0.091 | 0.228 | 100% | 0.001s |
-| MCAR | MAR MICE (PMM) | -0.002 | 0.987 | 100.0% | 0.110 | 0.106 | 100% | 0.050s |
-| MCAR | MAR MICE (Ridge) | +0.001 | 0.704 | 100.0% | 0.105 | 0.105 | 100% | 0.029s |
-| MCAR | Heckman Selection | -0.049 | 4.316 | 5.0% | 0.209 | 0.142 | 100% | 0.015s |
-| MCAR | Pattern Mixture (delta=0) | +0.001 | 0.704 | 100.0% | 0.105 | 0.105 | 100% | 0.008s |
-| MCAR | Umbra (Auto) | -0.002 | 0.987 | 100.0% | 0.110 | 0.106 | 100% | 0.653s |
-| MAR | Complete-Case | +0.097 | 1.415 | 5.0% | 0.140 | 0.105 | 100% | 0.001s |
-| MAR | Naive Mean | +0.097 | 1.415 | 0.0% | 0.085 | 0.326 | 100% | 0.001s |
-| MAR | MAR MICE (PMM) | -0.000 | 0.992 | 100.0% | 0.109 | 0.106 | 100% | 0.052s |
-| MAR | MAR MICE (Ridge) | +0.001 | 0.704 | 100.0% | 0.104 | 0.105 | 100% | 0.029s |
-| MAR | Heckman Selection | +0.069 | 0.891 | 30.0% | 0.106 | 0.152 | 100% | 0.016s |
-| MAR | Pattern Mixture (delta=0) | +0.001 | 0.704 | 100.0% | 0.104 | 0.105 | 100% | 0.009s |
-| MAR | Umbra (Auto) | -0.000 | 0.992 | 100.0% | 0.109 | 0.106 | 100% | 1.144s |
-| MNAR_SELF_MASKING | Complete-Case | -0.574 | 1.985 | 0.0% | 0.114 | 0.072 | 100% | 0.001s |
-| MNAR_SELF_MASKING | Naive Mean | -0.574 | 1.985 | 0.0% | 0.074 | 0.478 | 100% | 0.001s |
-| MNAR_SELF_MASKING | MAR MICE (PMM) | -0.185 | 1.077 | 0.0% | 0.099 | 0.080 | 100% | 0.052s |
-| MNAR_SELF_MASKING | MAR MICE (Ridge) | -0.167 | 0.818 | 0.0% | 0.097 | 0.068 | 100% | 0.030s |
-| MNAR_SELF_MASKING | **Heckman Selection** | -0.008 | 0.736 | 35.0% | 0.105 | 0.117 | 100% | 0.018s |
-| MNAR_SELF_MASKING | Pattern Mixture (delta=0) | -0.167 | 0.818 | 0.0% | 0.097 | 0.068 | 100% | 0.008s |
-| MNAR_SELF_MASKING | **Umbra (Auto)** | -0.008 | 0.736 | 35.0% | 0.105 | 0.117 | 100% | 1.456s |
-| MNAR_SELECTION | Complete-Case | +0.246 | 1.565 | 0.0% | 0.127 | 0.115 | 100% | 0.001s |
-| MNAR_SELECTION | Naive Mean | +0.246 | 1.565 | 0.0% | 0.089 | 0.260 | 100% | 0.001s |
-| MNAR_SELECTION | MAR MICE (PMM) | +0.200 | 1.118 | 0.0% | 0.106 | 0.119 | 100% | 0.050s |
-| MNAR_SELECTION | MAR MICE (Ridge) | +0.202 | 0.920 | 0.0% | 0.102 | 0.121 | 100% | 0.029s |
-| MNAR_SELECTION | **Heckman Selection** | -0.002 | 0.617 | 100.0% | 0.107 | 0.110 | 100% | 0.014s |
-| MNAR_SELECTION | Pattern Mixture (delta=0) | +0.202 | 0.920 | 0.0% | 0.102 | 0.121 | 100% | 0.008s |
-| MNAR_SELECTION | **Umbra (Auto)** | +0.200 | 1.118 | 0.0% | 0.106 | 0.119 | 100% | 0.961s |
-| MNAR_PATTERN_MIXTURE | Complete-Case | -0.014 | 1.372 | 100.0% | 0.128 | 0.106 | 100% | 0.001s |
-| MNAR_PATTERN_MIXTURE | Naive Mean | -0.014 | 1.372 | 100.0% | 0.090 | 0.270 | 100% | 0.001s |
-| MNAR_PATTERN_MIXTURE | MAR MICE (PMM) | +0.164 | 1.124 | 0.0% | 0.109 | 0.104 | 100% | 0.051s |
-| MNAR_PATTERN_MIXTURE | MAR MICE (Ridge) | +0.165 | 0.890 | 0.0% | 0.105 | 0.105 | 100% | 0.030s |
-| MNAR_PATTERN_MIXTURE | **Heckman Selection** | +0.172 | 1.000 | 15.0% | 0.107 | 0.132 | 100% | 0.017s |
-| MNAR_PATTERN_MIXTURE | Pattern Mixture (delta=0) | +0.165 | 0.890 | 0.0% | 0.105 | 0.105 | 100% | 0.008s |
-| MNAR_PATTERN_MIXTURE | **Umbra (Auto)** | +0.152 | 1.105 | 0.0% | 0.109 | 0.105 | 100% | 0.859s |
-| MNAR_TAILS | Complete-Case | -0.057 | 1.879 | 30.0% | 0.094 | 0.205 | 100% | 0.001s |
-| MNAR_TAILS | Naive Mean | -0.057 | 1.879 | 10.0% | 0.055 | 0.686 | 100% | 0.001s |
-| MNAR_TAILS | MAR MICE (PMM) | -0.016 | 1.163 | 95.0% | 0.081 | 0.228 | 100% | 0.052s |
-| MNAR_TAILS | MAR MICE (Ridge) | -0.007 | 0.938 | 100.0% | 0.080 | 0.174 | 100% | 0.030s |
-| MNAR_TAILS | **Heckman Selection** | +0.569 | 2.814 | 0.0% | 0.138 | 0.200 | 100% | 0.015s |
-| MNAR_TAILS | Pattern Mixture (delta=0) | -0.007 | 0.938 | 100.0% | 0.080 | 0.174 | 100% | 0.009s |
-| MNAR_TAILS | **Umbra (Auto)** | -0.016 | 1.163 | 95.0% | 0.081 | 0.228 | 100% | 1.946s |
+| MCAR | Complete-Case | -0.009 | 1.397 | 100.0% | 0.233 | 0.092 | 100% | 0.001s |
+| MCAR | Naive Mean | -0.009 | 1.397 | 100.0% | 0.159 | 0.258 | 100% | 0.001s |
+| MCAR | MAR MICE (PMM) | +0.002 | 0.990 | 100.0% | 0.192 | 0.095 | 100% | 0.043s |
+| MCAR | MAR MICE (Ridge) | -0.001 | 0.687 | 100.0% | 0.184 | 0.088 | 100% | 0.029s |
+| MCAR | Heckman Selection | -1.086 | 4.521 | 0.0% | 0.368 | 0.123 | 100% | 0.014s |
+| MCAR | Pattern Mixture (delta=0) | -0.001 | 0.687 | 100.0% | 0.184 | 0.088 | 100% | 0.008s |
+| MCAR | Umbra (Auto) | +0.002 | 0.990 | 100.0% | 0.192 | 0.095 | 100% | 0.262s |
+| MAR | Complete-Case | +0.057 | 1.395 | 100.0% | 0.249 | 0.108 | 100% | 0.001s |
+| MAR | Naive Mean | +0.057 | 1.395 | 66.7% | 0.150 | 0.328 | 100% | 0.001s |
+| MAR | MAR MICE (PMM) | -0.016 | 0.982 | 100.0% | 0.191 | 0.086 | 100% | 0.042s |
+| MAR | MAR MICE (Ridge) | -0.007 | 0.695 | 100.0% | 0.181 | 0.089 | 100% | 0.029s |
+| MAR | Heckman Selection | -0.070 | 0.830 | 33.3% | 0.184 | 0.123 | 100% | 0.013s |
+| MAR | Pattern Mixture (delta=0) | -0.007 | 0.695 | 100.0% | 0.181 | 0.089 | 100% | 0.007s |
+| MAR | Umbra (Auto) | -0.016 | 0.982 | 100.0% | 0.191 | 0.086 | 100% | 0.376s |
+| MNAR_SELF_MASKING | Complete-Case | -0.595 | 1.984 | 0.0% | 0.202 | 0.073 | 100% | 0.000s |
+| MNAR_SELF_MASKING | Naive Mean | -0.595 | 1.984 | 0.0% | 0.129 | 0.501 | 100% | 0.001s |
+| MNAR_SELF_MASKING | MAR MICE (PMM) | -0.191 | 1.057 | 0.0% | 0.173 | 0.077 | 100% | 0.042s |
+| MNAR_SELF_MASKING | MAR MICE (Ridge) | -0.169 | 0.805 | 0.0% | 0.171 | 0.057 | 100% | 0.028s |
+| MNAR_SELF_MASKING | **Heckman Selection** | +0.068 | 0.723 | 66.7% | 0.194 | 0.141 | 100% | 0.013s |
+| MNAR_SELF_MASKING | Pattern Mixture (delta=0) | -0.169 | 0.805 | 0.0% | 0.171 | 0.057 | 100% | 0.008s |
+| MNAR_SELF_MASKING | **Umbra (Auto)** | +0.068 | 0.723 | 66.7% | 0.194 | 0.141 | 100% | 0.534s |
+| MNAR_SELECTION | Complete-Case | +0.238 | 1.566 | 0.0% | 0.222 | 0.080 | 100% | 0.001s |
+| MNAR_SELECTION | Naive Mean | +0.238 | 1.566 | 0.0% | 0.155 | 0.265 | 100% | 0.001s |
+| MNAR_SELECTION | MAR MICE (PMM) | +0.182 | 1.105 | 0.0% | 0.184 | 0.074 | 100% | 0.050s |
+| MNAR_SELECTION | MAR MICE (Ridge) | +0.189 | 0.902 | 0.0% | 0.179 | 0.091 | 100% | 0.030s |
+| MNAR_SELECTION | **Heckman Selection** | +0.009 | 0.635 | 100.0% | 0.185 | 0.090 | 100% | 0.012s |
+| MNAR_SELECTION | Pattern Mixture (delta=0) | +0.189 | 0.902 | 0.0% | 0.179 | 0.091 | 100% | 0.007s |
+| MNAR_SELECTION | **Umbra (Auto)** | +0.182 | 1.105 | 0.0% | 0.184 | 0.074 | 100% | 0.384s |
+| MNAR_PATTERN_MIXTURE | Complete-Case | -0.007 | 1.397 | 100.0% | 0.224 | 0.113 | 100% | 0.001s |
+| MNAR_PATTERN_MIXTURE | Naive Mean | -0.007 | 1.397 | 100.0% | 0.157 | 0.292 | 100% | 0.001s |
+| MNAR_PATTERN_MIXTURE | MAR MICE (PMM) | +0.173 | 1.186 | 0.0% | 0.193 | 0.111 | 100% | 0.050s |
+| MNAR_PATTERN_MIXTURE | MAR MICE (Ridge) | +0.171 | 0.902 | 0.0% | 0.186 | 0.110 | 100% | 0.032s |
+| MNAR_PATTERN_MIXTURE | **Heckman Selection** | +0.194 | 1.111 | 33.3% | 0.191 | 0.114 | 100% | 0.018s |
+| MNAR_PATTERN_MIXTURE | Pattern Mixture (delta=0) | +0.171 | 0.902 | 0.0% | 0.186 | 0.110 | 100% | 0.009s |
+| MNAR_PATTERN_MIXTURE | **Umbra (Auto)** | +0.086 | 1.022 | 33.3% | 0.190 | 0.104 | 100% | 0.315s |
+| MNAR_TAILS | Complete-Case | -0.074 | 1.844 | 66.7% | 0.168 | 0.221 | 100% | 0.000s |
+| MNAR_TAILS | Naive Mean | -0.074 | 1.844 | 0.0% | 0.095 | 0.683 | 100% | 0.001s |
+| MNAR_TAILS | MAR MICE (PMM) | -0.020 | 1.150 | 100.0% | 0.144 | 0.225 | 100% | 0.041s |
+| MNAR_TAILS | MAR MICE (Ridge) | -0.013 | 0.943 | 100.0% | 0.139 | 0.193 | 100% | 0.028s |
+| MNAR_TAILS | **Heckman Selection** | -1.505 | 3.804 | 0.0% | 0.291 | 0.379 | 100% | 0.013s |
+| MNAR_TAILS | Pattern Mixture (delta=0) | -0.013 | 0.943 | 100.0% | 0.139 | 0.193 | 100% | 0.008s |
+| MNAR_TAILS | **Umbra (Auto)** | -0.020 | 1.150 | 100.0% | 0.144 | 0.225 | 100% | 0.675s |
 
 ---
 
@@ -140,19 +140,19 @@ Evaluates whether Umbra Auto provides an adaptive advantage over naive fixed pol
 
 |    N |   p |   missing_rate |   MAR MICE (Ridge) |   MAR MICE (PMM) |   Heckman Selection |   Pattern Mixture |   Umbra (Auto) |
 |-----:|----:|---------------:|-------------------:|-----------------:|--------------------:|------------------:|---------------:|
-|  500 |   5 |            0.3 |             0.0161 |           0.0231 |              0.0133 |            0.0074 |         0.1945 |
-| 1000 |   5 |            0.3 |             0.0166 |           0.0238 |              0.0135 |            0.0073 |         0.2875 |
-| 2500 |   5 |            0.3 |             0.0185 |           0.0285 |              0.0161 |            0.008  |         0.7453 |
-| 5000 |   5 |            0.3 |             0.0228 |           0.0439 |              0.0196 |            0.0087 |         1.2014 |
+|  500 |   5 |            0.3 |             0.0156 |           0.0218 |              0.0136 |            0.0073 |         0.1834 |
+| 1000 |   5 |            0.3 |             0.0156 |           0.0244 |              0.0136 |            0.0071 |         0.2838 |
+| 2500 |   5 |            0.3 |             0.0166 |           0.0278 |              0.0147 |            0.0081 |         0.6272 |
+| 5000 |   5 |            0.3 |             0.0183 |           0.0349 |              0.016  |            0.0082 |         1.1358 |
 
 ### Scaling with Feature Count p (N=2,000, missingness=30%, runtime in seconds)
 
 |    N |   p |   missing_rate |   MAR MICE (Ridge) |   Heckman Selection |   Pattern Mixture |   Umbra (Auto) |
 |-----:|----:|---------------:|-------------------:|--------------------:|------------------:|---------------:|
-| 2000 |   4 |            0.3 |             0.0171 |              0.0136 |            0.0072 |         0.4484 |
-| 2000 |   8 |            0.3 |             0.0184 |              0.0185 |            0.0099 |         0.5638 |
-| 2000 |  16 |            0.3 |             0.0233 |              0.0295 |            0.0146 |         0.7626 |
-| 2000 |  32 |            0.3 |             0.0321 |              0.0464 |            0.037  |         1.519  |
+| 2000 |   4 |            0.3 |             0.0172 |              0.0133 |            0.0071 |         0.4343 |
+| 2000 |   8 |            0.3 |             0.0179 |              0.0173 |            0.0097 |         0.5425 |
+| 2000 |  16 |            0.3 |             0.022  |              0.0262 |            0.0145 |         0.7663 |
+| 2000 |  32 |            0.3 |             0.0314 |              0.0442 |            0.023  |         1.469  |
 
 ---
 

@@ -145,6 +145,26 @@ class UmbraDiagnosticReport:
                     lines.append(
                         f"    - Tipping Point: crosses zero at delta={tp.tipping_delta:+.2f} std devs"
                     )
+        lines.extend(
+            [
+                "",
+                "EPISTEMIC BOUNDARY: KNOW / ASSUME / CANNOT KNOW",
+                "----------------------------------------------------------------------",
+                "  [What Umbra Observes]:",
+                "    - Little's MCAR test statistic and degrees of freedom",
+                "    - Observable covariate distribution shifts across missingness indicators",
+                "    - Residual tail concentration and non-linear patterns on observed rows",
+                "    - Candidate auxiliary variable relevance (first-stage F-statistic)",
+                "  [What Umbra Assumes]:",
+                "    - MAR conditional independence when applying chained equations (MICE)",
+                "    - Bivariate joint normality and exclusion restrictions when applying Heckman",
+                "    - Residual standard-deviation scaled shift (delta) in pattern-mixture models",
+                "  [What Umbra Cannot Establish]:",
+                "    - True MNAR missingness mechanism from observed data alone (Molenberghs et al., 2008)",
+                "    - Validity of an exclusion restriction from observational correlation alone",
+                "    - Unobserved counterfactual distribution without unverifiable structural assumptions",
+            ]
+        )
 
         lines.append("=" * 70)
         return "\n".join(lines)
@@ -155,6 +175,24 @@ class UmbraDiagnosticReport:
                 "n_samples": self.n_samples,
                 "n_features": self.n_features,
                 "missing_columns": self.missing_columns,
+            },
+            "epistemic_boundary": {
+                "what_umbra_observes": [
+                    "Missingness pattern frequencies and co-occurrence matrices",
+                    "Covariate distribution shifts across response indicators",
+                    "Residual tail concentration after MAR regression",
+                    "Candidate auxiliary variable relevance (first-stage F > 10)",
+                ],
+                "what_umbra_assumes": [
+                    "MAR conditional exchangeability under MICE",
+                    "Bivariate normality and exclusion restrictions under Heckman selection",
+                    "Specified residual shift parameter delta under pattern-mixture modeling",
+                ],
+                "what_umbra_cannot_establish": [
+                    "True MNAR status from observed data alone (non-identifiable)",
+                    "Exclusion restriction validity without substantive domain knowledge",
+                    "The true unobserved outcome distribution without structural assumptions",
+                ],
             },
             "tier1_observed_data_evidence": {
                 "mcar_test": self.mcar.to_dict(),
@@ -285,7 +323,21 @@ class UmbraDiagnosticReport:
                     f"[{sens.estimate_min:.3f}, {sens.estimate_max:.3f}] | {sens.uncertainty_spread:.3f} | {frag} | {tps} |"
                 )
 
-        lines.append("")
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## 5. Epistemic Boundary: Know / Assume / Cannot Know",
+                "",
+                "| Category | Empirical & Theoretical Scope |",
+                "| :--- | :--- |",
+                "| **What Umbra Observes** | - Exact missingness pattern co-occurrence matrices<br>- Empirical covariate distribution shifts between response indicators<br>- Residual tail concentration and non-linear patterns on observed cases<br>- Statistical relevance of candidate auxiliary variables ($F > 10$) |",
+                r"| **What Umbra Assumes** | - Conditional exchangeability (MAR) when applying chained equations<br>- Bivariate joint normality and valid exclusion restrictions when applying Heckman selection<br>- Residual-scaled shift magnitude ($\delta$) when exploring pattern-mixture models |",
+                "| **What Umbra Cannot Establish** | - **True MNAR mechanism from observed data alone** (Molenberghs et al., 2008)<br>- Validity of exclusion restrictions from observational data without domain knowledge<br>- Counterfactual unobserved distributions without untestable structural assumptions |",
+                "",
+            ]
+        )
         return "\n".join(lines)
 
     def to_html(self) -> str:

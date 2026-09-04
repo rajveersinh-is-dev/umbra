@@ -93,7 +93,10 @@ class MNARRiskReport:
     risk_level : str
         'LOW', 'MEDIUM', or 'HIGH' evidence consistent with MNAR.
     composite_score : float
-        Synthesized score in [0.0, 1.0] reflecting strength of evidence against MAR.
+        Synthesized Missingness Concern Score in [0.0, 1.0].
+        NOTE: This score is an empirical index of observable departure from simple
+        missingness models, NOT a posterior probability that the data are MNAR.
+        True MNAR is fundamentally unidentifiable from observed data alone.
     missing_rate : float
         Proportion of missing values in the variable.
     signals : List[DiagnosticSignal]
@@ -120,6 +123,11 @@ class MNARRiskReport:
     shadow_candidate: Optional[str] = None
     domain_heuristic_matched: bool = False
     citation: Optional[str] = None
+
+    @property
+    def concern_score(self) -> float:
+        """Alias for composite_score: Missingness Concern Score in [0.0, 1.0]."""
+        return float(self.composite_score)
 
     @property
     def covariate_shift_score(self) -> float:

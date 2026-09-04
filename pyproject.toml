@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "umbra-impute"
-version = "0.1.0"
+version = "0.2.0"
 description = "Diagnose and honestly handle Not-Missing-At-Random (MNAR) data — scikit-learn compatible"
 readme = "README.md"
 license = { text = "MIT" }

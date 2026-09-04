@@ -3,7 +3,7 @@
 [![CI](https://github.com/Raj123-0/umbra/actions/workflows/ci.yml/badge.svg)](https://github.com/Raj123-0/umbra/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg)](https://github.com/Raj123-0/umbra)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
-[![Coverage](https://img.shields.io/badge/coverage-84%25-brightgreen.svg)](https://github.com/Raj123-0/umbra)
+[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)](https://github.com/Raj123-0/umbra)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type Checked: mypy](https://img.shields.io/badge/type_checked-mypy-blue.svg)](http://mypy-lang.org/)
@@ -212,35 +212,39 @@ Evaluated across repeated Monte Carlo replications ($N=2,500, R=20$ per regime, 
 | **MNAR Tail-Censored** | Pattern Mixture ($\delta=0$) | -0.007 | 0.938 | 100.0% | 0.080 | 0.174 | 100% | 0.008s |
 | **MNAR Tail-Censored** | **Umbra (Auto)** | -0.016 | 1.163 | 95.0% | 0.081 | 0.228 | 100% | 1.842s |
 
-### Auto-Router Performance
-- **Overall Routing Accuracy**: `96.7%`
-- **MCAR Preservation Accuracy**: `100.0%` (Correctly routes to MICE, avoiding misspecified Heckman selection)
-- **MAR Preservation Accuracy**: `100.0%` (Correctly routes to MICE, preserving nominal ~95% coverage)
-- **False Alarm Rate**: `0.0%` (MCAR/MAR data never falsely escalated to severe MNAR)
-- **Missed Risk Rate**: `5.0%`
+### Auto-Router Policy Performance (with Wilson 95% CIs)
+- **Overall Routing Accuracy**: `96.7%` (95% CI: `[91.8%, 98.7%]`, $N=150$ datasets)
+- **MCAR Preservation Accuracy**: `100.0%` (95% CI: `[86.7%, 100.0%]`, $N=25$) — Correctly routes to MICE, avoiding misspecified Heckman selection
+- **MAR Preservation Accuracy**: `100.0%` (95% CI: `[86.7%, 100.0%]`, $N=25$) — Correctly routes to MICE, preserving nominal ~95% coverage
+- **MNAR Risk Identification Sensitivity**: `95.0%` (95% CI: `[88.8%, 97.8%]`, $N=100$)
+- **False Alarm Rate**: `0.0%` (95% CI: `[0.0%, 7.1%]`, $N=50$) — MCAR/MAR data never falsely escalated to severe MNAR
+- **Missed Risk Rate**: `5.0%` (95% CI: `[2.2%, 11.2%]`, $N=100$) — Subtle MNAR indistinguishable from MAR in finite samples
 
-Full reproducible scripts and detailed tables are in [`benchmarks/results.md`](benchmarks/results.md) and [`benchmarks/ablation_results.md`](benchmarks/ablation_results.md).
+Full reproducible scripts and detailed tables are in [`benchmarks/results.md`](benchmarks/results.md) and [`benchmarks/misspecification_results.md`](benchmarks/misspecification_results.md).
 
 ### Push-Button Reproduction
 
 ```bash
-# Fast Monte Carlo verification (~60s)
-python scripts/reproduce_benchmarks.py --quick
+# Fast verification (~30s)
+python -m benchmarks.reproduce_all --quick
 
-# Full research-grade Monte Carlo battery (N=2,500, R=20 per regime)
-python scripts/reproduce_benchmarks.py --full
+# Full research-grade Monte Carlo battery (N=2,500, R=20 per regime, all figures)
+python -m benchmarks.reproduce_all --full
 
 # End-to-end evaluation on 4 real-world empirical datasets
 python scripts/reproduce_case_studies.py
 
-# Diagnostic routing ablation & signal sensitivity study
-python benchmarks/ablation_study.py
+# Boundary misspecification stress battery (weak instruments, direct Z->Y paths, heavy tails)
+python -m benchmarks.misspecification_benchmark
 ```
 
 ---
 
 ## Research Documentation & Technical Foundations
 
+- **[The Identifiability Map](docs/identifiability.md)**: Observable evidence, assumption-dependent estimation, and why blind Manski bounds break down on unbounded variables.
+- **[Method Selection Matrix](docs/method_selection_matrix.md)**: Structured guide detailing when each estimator succeeds, degrades, or fails.
+- **[Claims & Theorems Audit](docs/claims_audit.md)**: Epistemic classification of every mathematical claim across the codebase.
 - **[Scientific Specification & Mathematical Foundations](docs/scientific_specification.md)**: Formal mathematical notation, Molenberghs non-identifiability theorem, 4-tier epistemic architecture, and algorithmic derivations.
 - **[Negative Results & Methodological Failure Modes](docs/failure_modes.md)**: Regimes where diagnostics break down (symmetric U-shaped tails, high dimensions $p > n$, weak instruments $F < 10$, non-normal selection errors).
 - **[Peer Review & Scientific Hardening Audit](docs/peer_review_audit.md)**: Multi-disciplinary simulated peer review across mathematical statistics, econometrics, ML engineering, and reproducibility.

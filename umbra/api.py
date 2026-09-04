@@ -35,10 +35,13 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
     ----------
     strategy : str, default='auto'
         Imputation strategy:
-        - 'auto': Data-driven scientific routing. MCAR and MAR variables are imputed
-                  using chained equations (MICE). Variables with empirical evidence
-                  consistent with MNAR use Heckman selection (if auxiliary shadow
-                  instruments exist) or pattern-mixture sensitivity models.
+        - 'auto': Evidence-conditioned missing-data analysis policy. Variables with observed
+                  patterns compatible with MCAR/MAR are routed to chained equations (MICE).
+                  Variables with empirical evidence consistent with departure from MAR
+                  use Heckman selection (if a candidate auxiliary variable satisfying F > 10
+                  is available) or pattern-mixture models with sensitivity exploration.
+                  NOTE: This policy conditions on observable signals and stated assumptions;
+                  it does NOT claim to establish true MNAR from observed data alone.
         - 'mar': Standard MICE chained equations for all variables.
         - 'heckman': Heckman selection model for incomplete variables.
         - 'pattern_mixture': Pattern-mixture model with specified delta shift.
