@@ -111,6 +111,28 @@ def run_full_benchmark_suite(
     return all_summaries, router_res, df_router_vs_baselines, df_scaling_n, df_scaling_p
 
 
+def _df_to_markdown(df: pd.DataFrame, index: bool = True) -> str:
+    """Format DataFrame as a clean Markdown table with fallback for environments lacking tabulate."""
+    try:
+        return df.to_markdown(index=index)
+    except Exception:
+        df_copy = df.copy()
+        if index:
+            df_copy = df_copy.reset_index()
+        headers = [str(c) for c in df_copy.columns]
+        rows = [[str(val) for val in row] for row in df_copy.itertuples(index=False)]
+        col_widths = [
+            max(len(h), max((len(r[i]) for r in rows), default=0)) for i, h in enumerate(headers)
+        ]
+        header_line = "| " + " | ".join(h.ljust(w) for h, w in zip(headers, col_widths)) + " |"
+        sep_line = "| " + " | ".join("-" * max(3, w) for w in col_widths) + " |"
+        row_lines = [
+            "| " + " | ".join(r[i].ljust(col_widths[i]) for i in range(len(headers))) + " |"
+            for r in rows
+        ]
+        return "\n".join([header_line, sep_line] + row_lines)
+
+
 def format_markdown_leaderboard(
     summaries: List[MonteCarloSummary],
     router_summary: Any,
@@ -146,18 +168,13 @@ def format_markdown_leaderboard(
         bias_str = f"{s.mean_bias:+.3f}"
         rmse_str = f"{s.cell_rmse:.3f}"
         cov_str = f"{s.coverage_95:.1%}"
-        w_str = f"{s.avg_ci_width_95:.3f}"
+        width_str = f"{s.avg_ci_width_95:.3f}"
         beta_str = f"{s.beta_total_rmse:.3f}"
-        conv_str = f"{s.convergence_rate:.0%}"
+        conv_str = f"{s.convergence_rate:.1%}"
         time_str = f"{s.avg_runtime_sec:.3f}s"
 
-        if "MNAR" in reg and ("Umbra" in method or "Heckman" in method):
-            method_display = f"**{method}**"
-        else:
-            method_display = method
-
         lines.append(
-            f"| {reg} | {method_display} | {bias_str} | {rmse_str} | {cov_str} | {w_str} | {beta_str} | {conv_str} | {time_str} |"
+            f"| **{reg}** | {method} | {bias_str} | {rmse_str} | {cov_str} | {width_str} | {beta_str} | {conv_str} | {time_str} |"
         )
 
     lines.extend(
@@ -165,7 +182,7 @@ def format_markdown_leaderboard(
             "",
             "---",
             "",
-            "## 2. Independent Auto-Router Benchmark",
+            "## 2. Independent Auto Router Performance & Precision",
             "",
             "Umbra's Auto mode is independently evaluated as an evidence-conditioned decision classifier across sample sizes and missingness rates:",
             "",
@@ -178,7 +195,7 @@ def format_markdown_leaderboard(
             "",
             "### Router Confusion Matrix (Normalized by Ground Truth Regime)",
             "",
-            router_summary.confusion_matrix.to_markdown(),
+            _df_to_markdown(router_summary.confusion_matrix),
             "",
             "---",
             "",
@@ -186,7 +203,7 @@ def format_markdown_leaderboard(
             "",
             "Evaluates whether Umbra Auto provides an adaptive advantage over naive fixed policies (Always MICE, Always Heckman, Complete-Case) versus Oracle knowledge:",
             "",
-            router_vs_baselines.to_markdown(index=False),
+            _df_to_markdown(router_vs_baselines, index=False),
             "",
             "---",
             "",
@@ -194,11 +211,11 @@ def format_markdown_leaderboard(
             "",
             "### Scaling with Sample Size N (p=5, missingness=30%, runtime in seconds)",
             "",
-            scaling_n.to_markdown(index=False),
+            _df_to_markdown(scaling_n, index=False),
             "",
             "### Scaling with Feature Count p (N=2,000, missingness=30%, runtime in seconds)",
             "",
-            scaling_p.to_markdown(index=False),
+            _df_to_markdown(scaling_p, index=False),
             "",
             "---",
             "",
