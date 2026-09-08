@@ -337,9 +337,12 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
                 if self.n_bootstrap_se > 0:
                     X_df_all = df[X_cols].fillna(df[X_cols].median())
                     X_mat_all = sm.add_constant(X_df_all.to_numpy(dtype=float), has_constant="add")
-                    rng_se = np.random.RandomState(
-                        (self.random_state + 999) if self.random_state is not None else None
+                    rng_seed = (
+                        (self.random_state + 999) % (2**31 - 1)
+                        if self.random_state is not None
+                        else None
                     )
+                    rng_se = np.random.RandomState(rng_seed)
                     std_errors = _bootstrap_heckman_se(
                         W_mat=W_mat,
                         X_mat_obs=X_mat_all,
