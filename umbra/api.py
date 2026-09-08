@@ -334,6 +334,13 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
                 if isinstance(imp_frame, np.ndarray):
                     imp_frame = pd.DataFrame(imp_frame, columns=df_base.columns)
                 for col in self.routing_decisions_:
+                    routed_strategy = self.routing_decisions_[col]
+                    if "mar" in key and "mar" not in routed_strategy:
+                        continue
+                    if "heckman" in key and "heckman" not in routed_strategy:
+                        continue
+                    if "pattern_mixture" in key and "pattern_mixture" not in routed_strategy:
+                        continue
                     if col in imp_frame.columns and imp_frame[col].notna().all():
                         df_i[col] = imp_frame[col]
             imputed_dfs.append(df_i)
