@@ -80,6 +80,12 @@ def rubins_rules(
     """
     m = len(point_estimates)
     if m == 1:
+        warnings.warn(
+            "rubins_rules called with M=1 imputation. Between-imputation variance is zero "
+            "by construction (not because uncertainty is small). Use M>=5 for valid pooled inference.",
+            UserWarning,
+            stacklevel=2,
+        )
         q_bar = point_estimates[0]
         t_var = variance_estimates[0]
         z = stats.norm.ppf(1.0 - alpha / 2.0)
