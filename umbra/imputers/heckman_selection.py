@@ -363,8 +363,8 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
                     HeckmanSEWarning,
                     stacklevel=3,
                 )
-                r_est = Ridge(alpha=1.0).fit(design_obs, y_obs)
-                params = np.concatenate([[r_est.intercept_], r_est.coef_[1:]])
+                r_est = Ridge(alpha=1.0, fit_intercept=False).fit(design_obs, y_obs)
+                params = r_est.coef_
                 std_errors = np.full_like(params, np.nan)
 
             beta = params[:-1]
