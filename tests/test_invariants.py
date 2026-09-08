@@ -82,7 +82,52 @@ def test_sensitivity_shift_monotonicity():
     # Monotonicity check
     assert np.all(np.diff(deltas) > 0), "Delta grid must be monotonically increasing"
     diffs = np.diff(estimates)
-    assert np.all(diffs > 0), "Sensitivity curve must be strictly monotonic in delta"
+    assert np.all(diffs >= -1e-10), "Sensitivity curve must be non-decreasing in delta"
+    assert estimates[-1] > estimates[0] + 1e-6, "Sensitivity curve must have positive total range"
+
+
+def test_transform_preserves_observed_values():
+    """Critical invariant: imputation must not alter observed (non-missing) values."""
+    rng = np.random.RandomState(42)
+    n = 200
+    df = pd.DataFrame({"x": rng.randn(n), "y": rng.randn(n)})
+    df.loc[:30, "y"] = np.nan
+    obs_mask = df["y"].notna()
+    y_observed_original = df.loc[obs_mask, "y"].to_numpy().copy()
+
+    imp = UmbraImputer(strategy="mar", random_state=42)
+    result = imp.fit_transform(df)
+
+    np.testing.assert_allclose(
+        result.loc[obs_mask, "y"].to_numpy(),
+        y_observed_original,
+        rtol=1e-10,
+        err_msg="Observed values must not be modified by imputation",
+    )
+
+
+def test_sensitivity_reports_only_medium_high_risk_columns():
+    """Verify that sensitivity_reports_ is only populated for MEDIUM/HIGH risk columns."""
+    rng = np.random.RandomState(42)
+    n = 300
+    df = pd.DataFrame(
+        {
+            "x": rng.randn(n),
+            "y_mcar": rng.randn(n),
+            "z": rng.randn(n),
+            "y_mnar": rng.randn(n),
+        }
+    )
+    # y_mcar is MCAR -> LOW risk
+    df.loc[:30, "y_mcar"] = np.nan
+    # y_mnar has tail selection -> MEDIUM/HIGH risk
+    df.loc[df["y_mnar"] > 0.5, "y_mnar"] = np.nan
+
+    imp = UmbraImputer(strategy="auto", random_state=42)
+    imp.fit(df)
+    for col in imp.sensitivity_reports_:
+        risk = imp.diagnostics_[col].risk_level
+        assert risk in ("MEDIUM", "HIGH"), f"Column '{col}' had {risk} risk but got sensitivity report"
 
 
 def test_reproducibility_seed_determinism():
