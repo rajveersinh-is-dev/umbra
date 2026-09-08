@@ -367,7 +367,7 @@ class UmbraDiagnosticReport:
         return "\n".join(html_lines)
 
 
-def diagnose(
+def diagnose_report(
     data: Union[pd.DataFrame, np.ndarray],
     target_cols: Optional[List[str]] = None,
     shadow_cols: Optional[Dict[str, str]] = None,
@@ -497,3 +497,9 @@ def diagnose(
         n_features=n_features,
         missing_columns=missing_cols,
     )
+
+
+# Alias for backwards compatibility
+diagnose = diagnose_report
+
+__all__ = ["UmbraDiagnosticReport", "diagnose_report", "diagnose"]

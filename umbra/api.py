@@ -20,14 +20,14 @@ from sklearn.utils.validation import check_is_fitted
 ArrayOrDataFrame = TypeVar("ArrayOrDataFrame", pd.DataFrame, np.ndarray)
 
 from umbra.diagnostics.mnar_risk_score import MNARRiskReport, diagnose_dataframe
-from umbra.diagnostics.report import diagnose
+from umbra.diagnostics.report import diagnose, diagnose_report
 from umbra.explain import explain_diagnostics
 from umbra.imputers.heckman_selection import HeckmanSelectionImputer
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
 from umbra.sensitivity.grid_analysis import SensitivityReport, run_sensitivity_grid
 
-__all__ = ["UmbraImputer", "diagnose"]
+__all__ = ["UmbraImputer", "diagnose", "diagnose_report"]
 
 
 class UmbraImputer(BaseEstimator, TransformerMixin):

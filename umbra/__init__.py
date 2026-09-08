@@ -7,7 +7,7 @@ Umbra combines empirical diagnostics and sensitivity analyses to quantify eviden
 and assess how conclusions change under plausible departures from MAR.
 """
 
-from umbra.api import UmbraImputer, diagnose
+from umbra.api import UmbraImputer, diagnose, diagnose_report
 from umbra.diagnostics.mcar_test import LittleMCARResult, littles_mcar_test
 from umbra.diagnostics.mnar_risk_score import (
     DiagnosticSignal,
@@ -49,6 +49,7 @@ __version__ = "0.2.0"
 __all__ = [
     "UmbraImputer",
     "diagnose",
+    "diagnose_report",
     "UmbraDiagnosticReport",
     "littles_mcar_test",
     "LittleMCARResult",
