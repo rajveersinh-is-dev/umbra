@@ -148,3 +148,17 @@ def test_heckman_ridge_fallback_warning_and_nans():
 
     se_sing = imp_sing.models_["y"]["std_errors"]
     assert np.all(np.isnan(se_sing)), f"Expected all NaN std_errors, got {se_sing}"
+
+
+def test_heckman_fit_transform_multiple():
+    rng = np.random.RandomState(42)
+    n = 200
+    df = pd.DataFrame({"x": rng.randn(n), "z": rng.randn(n), "y": rng.randn(n)})
+    df.loc[:40, "y"] = np.nan
+    imp = HeckmanSelectionImputer(
+        target_cols=["y"], shadow_cols={"y": "z"}, n_imputations=3, random_state=42
+    )
+    results = imp.fit_transform_multiple(df)
+    assert len(results) == 3
+    for r in results:
+        assert not r["y"].isna().any()
