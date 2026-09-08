@@ -297,6 +297,10 @@ def evaluate_imputer_replication(
             converged=True,
         )
     except Exception as e:
+        import sys
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
         runtime = time.perf_counter() - t0
         return ReplicationResult(
             rep_idx=rep_idx,
@@ -365,6 +369,11 @@ def run_monte_carlo_regime(
             n_samples=n_samples,
             missing_rate=missing_rate,
         )
+        if summary.convergence_rate < 0.5:
+            raise RuntimeError(
+                f"High failure rate for method '{method_name}' on regime '{regime}': "
+                f"convergence rate is {summary.convergence_rate:.1%} (< 50%)."
+            )
         print(
             f"  [{method_name:24s}] Bias: {summary.mean_bias:+.3f} | "
             f"RMSE: {summary.cell_rmse:.3f} | 95% Cov: {summary.coverage_95:.1%} | "

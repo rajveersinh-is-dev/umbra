@@ -150,6 +150,23 @@ def run_case_study(
 
 
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Reproduce Umbra real-world case studies.")
+    parser.add_argument(
+        "--no-overwrite",
+        action="store_true",
+        help="Skip generation if output files already exist.",
+    )
+    args = parser.parse_args()
+
+    out_dir = root_dir / "paper" / "tables"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / "case_studies_summary.csv"
+    if args.no_overwrite and out_file.exists():
+        print(f"Outputs already exist at {out_file}. Skipping generation (--no-overwrite).")
+        return
+
     data_dir = root_dir / "data" / "processed"
     print("=" * 75)
     print("UMBRA REPRODUCIBLE REAL-WORLD CASE STUDIES")
@@ -215,6 +232,16 @@ def main():
         print("\nImputer Performance Leaderboard:")
         print(res["benchmark_table"].to_string(index=False))
         all_summaries.append(res)
+
+    summary_dfs = []
+    for res in all_summaries:
+        t = res["benchmark_table"].copy()
+        t.insert(0, "Case Study", res["name"])
+        summary_dfs.append(t)
+    if summary_dfs:
+        combined_df = pd.concat(summary_dfs, ignore_index=True)
+        combined_df.to_csv(out_file, index=False)
+        print(f"\nCase studies summary saved to: {out_file}")
 
     print("\n" + "=" * 75)
     print("All 4 semi-synthetic case studies successfully executed and verified.")

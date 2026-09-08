@@ -142,12 +142,14 @@ def format_markdown_leaderboard(
     out_path: Path,
 ):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    n_samples = summaries[0].n_samples if summaries else 2500
+    n_replications = summaries[0].n_replications if summaries else 20
     lines = [
         "# Umbra Empirical Benchmark Leaderboard & Evidence Dossier",
         "",
         "> [!IMPORTANT]",
         "> **Ground Truth Protocol & Identifiability Guardrails**:",
-        "> - All benchmark experiments are conducted with repeated Monte Carlo replications (R=20 per condition) with random seed controls.",
+        f"> - All benchmark experiments are conducted with repeated Monte Carlo replications (R={n_replications} per condition) with random seed controls.",
         "> - **Coverage Probability** assesses whether the 95% confidence interval empirically covers the true population parameter ($P(\\theta_{true} \\in \\text{CI}_{95})$).",
         "> - **Downstream Parameter Recovery** tests whether regression coefficients ($\\beta_{age}, \\beta_{education}$) are preserved without attenuation or sign distortion.",
         "> - *No cherry-picked seeds or manufactured values*: Every row is populated directly from executed empirical simulations.",
@@ -156,7 +158,7 @@ def format_markdown_leaderboard(
         "",
         "---",
         "",
-        "## 1. Monte Carlo Imputation & Coverage Leaderboard (N=2,500, R=20)",
+        f"## 1. Monte Carlo Imputation & Coverage Leaderboard (N={n_samples:,}, R={n_replications})",
         "",
         "| Missingness Regime | Method | Overall Mean Bias | Cell RMSE | 95% Coverage | 95% CI Width | Downstream Beta Error | Convergence | Avg Runtime |",
         "| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |",
