@@ -13,6 +13,7 @@ Strictly separates:
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -235,10 +236,13 @@ class UmbraDiagnosticReport:
             "recommendations": self.recommendations,
         }
 
-    def to_json(self, indent: int = 2) -> str:
-        return json.dumps(self.to_dict(), indent=indent)
+    def to_json(self, path: Optional[Union[str, Path]] = None, indent: int = 2) -> str:
+        content = json.dumps(self.to_dict(), indent=indent)
+        if path is not None:
+            Path(path).write_text(content, encoding="utf-8")
+        return content
 
-    def to_markdown(self) -> str:
+    def to_markdown(self, path: Optional[Union[str, Path]] = None) -> str:
         lines = [
             "# Umbra Missingness Diagnostic Audit Report",
             "",
@@ -338,9 +342,12 @@ class UmbraDiagnosticReport:
                 "",
             ]
         )
-        return "\n".join(lines)
+        content = "\n".join(lines)
+        if path is not None:
+            Path(path).write_text(content, encoding="utf-8")
+        return content
 
-    def to_html(self) -> str:
+    def to_html(self, path: Optional[Union[str, Path]] = None) -> str:
         md = self.to_markdown()
         html_lines = [
             "<!DOCTYPE html>",
@@ -364,7 +371,10 @@ class UmbraDiagnosticReport:
             "</body>",
             "</html>",
         ]
-        return "\n".join(html_lines)
+        content = "\n".join(html_lines)
+        if path is not None:
+            Path(path).write_text(content, encoding="utf-8")
+        return content
 
 
 def diagnose_report(
