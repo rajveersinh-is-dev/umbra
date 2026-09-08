@@ -64,6 +64,13 @@ def _bootstrap_heckman_se(
     if rng is None:
         rng = np.random.RandomState(42)
 
+    assert len(W_mat) == len(X_mat_obs) == len(y_obs) == len(R_obs), (
+        "All inputs to _bootstrap_heckman_se must have the same number of rows (N total)"
+    )
+    assert not np.any(np.isnan(y_obs[R_obs == 1])), (
+        "y_obs must not have NaN at positions where R_obs == 1"
+    )
+
     n_total = len(W_mat)
     k_params = X_mat_obs.shape[1] + 1  # X coefficients (including constant) + lambda
 
