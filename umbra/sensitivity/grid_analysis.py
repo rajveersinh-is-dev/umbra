@@ -207,7 +207,7 @@ def run_sensitivity_grid(
             metric_se = float(ols.bse[1])
         else:
             metric_val = mean_val
-            metric_se = se_val
+            metric_se = 0.0  # Sensitivity curve is deterministic; SE of mean does not represent delta sensitivity
 
         ci_lower = metric_val - z_crit * metric_se
         ci_upper = metric_val + z_crit * metric_se
