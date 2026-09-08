@@ -140,6 +140,13 @@ def _em_multivariate_normal(
     # Sample covariance with regularizer
     sigma = (X_centered.T @ X_centered) / max(1, n - 1) + ridge_reg * np.eye(p)
 
+    # Identify distinct missingness patterns once before EM iterations
+    pattern_tuples = [tuple(row) for row in nan_mask]
+    unique_patterns, pattern_inverse, pattern_counts = np.unique(
+        pattern_tuples, axis=0, return_inverse=True, return_counts=True
+    )
+    pattern_row_indices = [np.where(pattern_inverse == j)[0] for j in range(len(unique_patterns))]
+
     for _ in range(max_iter):
         mu_prev = mu.copy()
         sigma_prev = sigma.copy()
@@ -147,21 +154,23 @@ def _em_multivariate_normal(
         sum_x = np.zeros(p, dtype=float)
         sum_xx = np.zeros((p, p), dtype=float)
 
-        for i in range(n):
-            obs_idx = np.where(~nan_mask[i])[0]
-            mis_idx = np.where(nan_mask[i])[0]
+        for j, pat in enumerate(unique_patterns):
+            row_idx = pattern_row_indices[j]
+            n_j = len(row_idx)
+            obs_idx = np.where(~pat)[0]
+            mis_idx = np.where(pat)[0]
 
             if len(mis_idx) == 0:
-                # Fully observed row
-                x_i = X[i]
-                sum_x += x_i
-                sum_xx += np.outer(x_i, x_i)
+                # Fully observed rows
+                X_obs_rows = X[row_idx]
+                sum_x += np.sum(X_obs_rows, axis=0)
+                sum_xx += X_obs_rows.T @ X_obs_rows
             elif len(obs_idx) == 0:
-                # Fully missing row: conditional expectation is prior mean & covariance
-                sum_x += mu
-                sum_xx += np.outer(mu, mu) + sigma
+                # Fully missing rows: conditional expectation is prior mean & covariance
+                sum_x += n_j * mu
+                sum_xx += n_j * (np.outer(mu, mu) + sigma)
             else:
-                x_obs = X[i, obs_idx]
+                X_obs_rows = X[row_idx][:, obs_idx]  # (n_j, len(obs_idx))
                 mu_obs = mu[obs_idx]
                 mu_mis = mu[mis_idx]
 
@@ -175,10 +184,11 @@ def _em_multivariate_normal(
                 except np.linalg.LinAlgError:
                     beta = sigma_mis_obs @ np.linalg.pinv(sigma_obs_obs)
 
-                # Conditional mean: E[X_mis | X_obs]
-                cond_mu_mis = mu_mis + beta @ (x_obs - mu_obs)
+                # Conditional mean: E[X_mis | X_obs] for all rows in pattern
+                diff_obs = X_obs_rows - mu_obs  # (n_j, len(obs_idx))
+                cond_mu_mis = mu_mis + diff_obs @ beta.T  # (n_j, len(mis_idx))
 
-                # Conditional covariance: Var(X_mis | X_obs)
+                # Conditional covariance: Var(X_mis | X_obs) (same for all rows in pattern)
                 cond_cov_mis = sigma_mis_mis - beta @ sigma_mis_obs.T
                 cond_cov_mis = 0.5 * (cond_cov_mis + cond_cov_mis.T)
                 # Ensure positive semi-definiteness
@@ -186,16 +196,14 @@ def _em_multivariate_normal(
                 eigenvals = np.maximum(eigenvals, 1e-8)
                 cond_cov_mis = (eigenvecs * eigenvals) @ eigenvecs.T
 
-                # Construct completed vector expectation
-                x_comp = np.zeros(p, dtype=float)
-                x_comp[obs_idx] = x_obs
-                x_comp[mis_idx] = cond_mu_mis
-                sum_x += x_comp
+                # Completed matrix for pattern
+                X_comp = np.zeros((n_j, p), dtype=float)
+                X_comp[:, obs_idx] = X_obs_rows
+                X_comp[:, mis_idx] = cond_mu_mis
 
-                # Expected outer product: E[X X^T] = E[X]E[X]^T + Var(X)
-                xx_comp = np.outer(x_comp, x_comp)
-                xx_comp[np.ix_(mis_idx, mis_idx)] += cond_cov_mis
-                sum_xx += xx_comp
+                sum_x += np.sum(X_comp, axis=0)
+                sum_xx += X_comp.T @ X_comp
+                sum_xx[np.ix_(mis_idx, mis_idx)] += n_j * cond_cov_mis
 
         # M-step: Update parameter estimates
         mu = sum_x / n

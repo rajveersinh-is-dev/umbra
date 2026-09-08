@@ -96,3 +96,25 @@ def test_mnar_risk_scoring(benchmarks):
     all_reports = diagnose_dataframe(benchmarks["MNAR_MEDIUM"].data_observed)
     assert "income" in all_reports
     assert all_reports["income"].risk_level == "HIGH"
+
+
+def test_littles_mcar_performance_vectorized():
+    """Verify Little's MCAR test on N=5000, p=8 completes within 15 seconds."""
+    import time
+    rng = np.random.RandomState(42)
+    n = 5000
+    p = 8
+    X = rng.randn(n, p)
+    # Introduce missingness in multiple columns
+    mask1 = rng.rand(n) < 0.20
+    mask2 = rng.rand(n) < 0.15
+    X[mask1, 0] = np.nan
+    X[mask2, 1] = np.nan
+
+    t0 = time.perf_counter()
+    res = littles_mcar_test(X)
+    elapsed = time.perf_counter() - t0
+
+    assert res.statistic >= 0.0
+    assert 0.0 <= res.p_value <= 1.0
+    assert elapsed < 15.0, f"Little's test on N=5000 took {elapsed:.2f}s, expected < 15s"
