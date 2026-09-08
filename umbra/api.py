@@ -272,11 +272,25 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         else:
             # Auto strategy combination
             if "mar" in self.imputers_:
-                df = self.imputers_["mar"].transform(df)
+                mar_cols = [c for c, d in self.routing_decisions_.items() if "mar" in d]
+                df_mar = self.imputers_["mar"].transform(df)
+                for col in mar_cols:
+                    if col in df_mar.columns:
+                        df[col] = df_mar[col]
+
             if "heckman" in self.imputers_:
-                df = self.imputers_["heckman"].transform(df)
+                heck_cols = [c for c, d in self.routing_decisions_.items() if "heckman" in d]
+                df_heck = self.imputers_["heckman"].transform(df)
+                for col in heck_cols:
+                    if col in df_heck.columns:
+                        df[col] = df_heck[col]
+
             if "pattern_mixture" in self.imputers_:
-                df = self.imputers_["pattern_mixture"].transform(df)
+                pm_cols = [c for c, d in self.routing_decisions_.items() if "pattern_mixture" in d]
+                df_pm = self.imputers_["pattern_mixture"].transform(df)
+                for col in pm_cols:
+                    if col in df_pm.columns:
+                        df[col] = df_pm[col]
 
         result = df.to_numpy() if is_numpy else df
 
