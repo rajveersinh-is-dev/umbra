@@ -10,12 +10,14 @@ Also exposes the standalone `diagnose(X)` function returning an
 """
 
 import warnings
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, TypeVar, Union, overload
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
+
+ArrayOrDataFrame = TypeVar("ArrayOrDataFrame", pd.DataFrame, np.ndarray)
 
 from umbra.diagnostics.mnar_risk_score import MNARRiskReport, diagnose_dataframe
 from umbra.diagnostics.report import diagnose
@@ -247,6 +249,24 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
             else:
                 out[col] = "pattern_mixture"
         return out
+
+    @overload
+    def transform(
+        self, X: ArrayOrDataFrame, return_diagnostics: Literal[False] = False
+    ) -> ArrayOrDataFrame: ...
+
+    @overload
+    def transform(
+        self, X: ArrayOrDataFrame, return_diagnostics: Literal[True]
+    ) -> Tuple[ArrayOrDataFrame, Dict[str, MNARRiskReport]]: ...
+
+    @overload
+    def transform(
+        self, X: ArrayOrDataFrame, return_diagnostics: bool = False
+    ) -> Union[
+        ArrayOrDataFrame,
+        Tuple[ArrayOrDataFrame, Dict[str, MNARRiskReport]],
+    ]: ...
 
     def transform(
         self,
