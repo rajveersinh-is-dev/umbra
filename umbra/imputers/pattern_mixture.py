@@ -154,7 +154,7 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         for draw in range(n_draws):
             df = df_base.copy()
 
-            for target in self.target_cols or self.models_.keys():
+            for target in list(self.target_cols or self.models_.keys()):
                 if target not in df.columns:
                     continue
 

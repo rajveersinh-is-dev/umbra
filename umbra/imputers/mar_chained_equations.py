@@ -270,6 +270,10 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
 
         for draw in range(n_draws):
             df = df_base.copy()
+            # Note: predictor values in working_df may differ from those seen during fit()
+            # because earlier columns in this draw have been filled. This approximates
+            # a second chained-equations iteration at transform time, improving imputation
+            # quality for multivariate missing patterns but does not change model parameters.
             working_df = df.copy()
             for col in self.columns_:
                 if col in self.col_medians_:

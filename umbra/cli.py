@@ -155,9 +155,15 @@ def impute(
         for col, rep in imputer.sensitivity_reports_.items():
             console.print(explain_sensitivity(rep))
             if sensitivity_output:
-                rep.grid_df.to_csv(sensitivity_output, index=False)
+                col_safe = col.replace(" ", "_").replace("/", "_")
+                out_path = (
+                    sensitivity_output
+                    if len(imputer.sensitivity_reports_) == 1
+                    else sensitivity_output.with_stem(f"{sensitivity_output.stem}_{col_safe}")
+                )
+                rep.grid_df.to_csv(out_path, index=False)
                 console.print(
-                    f"[bold green]Sensitivity grid data saved to: {sensitivity_output}[/bold green]"
+                    f"[bold green]Sensitivity grid for '{col}' saved to: {out_path}[/bold green]"
                 )
 
 

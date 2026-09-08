@@ -56,6 +56,9 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         Whether to compute sensitivity grid analysis for variables flagged with MNAR evidence.
     n_imputations : int, default=1
         Number of stochastic multiple imputations generated.
+    n_bootstrap_se : int, default=200
+        Number of paired bootstrap resamples for Heckman second-stage standard errors.
+        Set to 0 to use faster but potentially anti-conservative naive OLS SEs.
     random_state : Optional[int], default=42
         Seed for reproducibility.
     verbose : bool, default=False
@@ -368,10 +371,19 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
 
     def explain(self):
         """Print rich diagnostic and sensitivity report to terminal."""
+        check_is_fitted(self, "is_fitted_")
         explain_diagnostics(self.diagnostics_)
 
     def get_sensitivity(self, column: str) -> Optional[SensitivityReport]:
-        """Get the sensitivity analysis report for a specific column."""
+        """Get the sensitivity analysis report for a specific column.
+
+        Returns None if:
+        - The column was not diagnosed as MEDIUM or HIGH risk, OR
+        - `run_sensitivity=False` was set at construction time.
+
+        Use `imputer.sensitivity_reports_.keys()` to list columns with reports.
+        """
+        check_is_fitted(self, "is_fitted_")
         return self.sensitivity_reports_.get(column)
 
     def get_feature_names_out(self, input_features=None):

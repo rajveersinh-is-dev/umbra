@@ -73,3 +73,13 @@ def test_numpy_array_input():
     X_imp = imputer.fit_transform(X)
     assert isinstance(X_imp, np.ndarray)
     assert not np.isnan(X_imp).any()
+
+
+def test_explain_and_get_sensitivity_not_fitted():
+    from sklearn.exceptions import NotFittedError
+
+    imputer = UmbraImputer()
+    with pytest.raises(NotFittedError):
+        imputer.explain()
+    with pytest.raises(NotFittedError):
+        imputer.get_sensitivity("col")
