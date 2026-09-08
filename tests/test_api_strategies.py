@@ -4,7 +4,6 @@ Tests for explicit UmbraImputer strategies and fit_transform_multiple.
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from umbra.api import UmbraImputer
 

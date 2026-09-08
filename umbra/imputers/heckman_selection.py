@@ -155,7 +155,9 @@ def _compute_imr_observed(eta: np.ndarray) -> np.ndarray:
     safe_Phi = np.where(Phi < 1e-12, 1e-12, Phi)
     imr = phi / safe_Phi
 
-    # Tail correction for extreme negative eta
+    # Tail correction for eta in [-30, -10]: direct phi/Phi ratio is numerically unstable.
+    # Use log-space formula: phi(eta)/Phi(eta) = exp(logpdf(eta) - logcdf(eta))
+    # (Values outside [-30, 30] are already clipped above.)
     extreme_neg = eta < -10.0
     if np.any(extreme_neg):
         imr[extreme_neg] = np.exp(
@@ -175,7 +177,9 @@ def _compute_imr_missing(eta: np.ndarray) -> np.ndarray:
     safe_Phi_neg = np.where(Phi_neg < 1e-12, 1e-12, Phi_neg)
     imr_0 = -(phi_neg / safe_Phi_neg)
 
-    # Tail correction for extreme positive eta (negative -eta)
+    # Tail correction for neg_eta in [-30, -10]: direct phi/Phi ratio is numerically unstable.
+    # Use log-space formula: phi(neg_eta)/Phi(neg_eta) = exp(logpdf(neg_eta) - logcdf(neg_eta))
+    # (Values outside [-30, 30] are already clipped above.)
     extreme_neg = neg_eta < -10.0
     if np.any(extreme_neg):
         imr_0[extreme_neg] = -np.exp(

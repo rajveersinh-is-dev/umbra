@@ -225,6 +225,8 @@ def _evaluate_residual_tail_dependency(
         # Discretize predicted values into quantiles
         n_quantiles = 5 if len(y_pred_all) >= 50 else 3
         quantiles = pd.qcut(y_pred_all, q=n_quantiles, labels=False, duplicates="drop")
+        if pd.isna(quantiles).all():
+            return 0.0, 0.0, {"status": "constant_predictions_no_variation"}
         missing_rate_by_quantile = is_missing.groupby(quantiles).mean()
 
         max_rate = float(missing_rate_by_quantile.max())
@@ -432,6 +434,10 @@ def assess_mnar_risk(
         else:
             risk_level = "LOW"
             recommended_strategy = "mar_chained_equations"
+    elif tail_triggered:
+        # Self-censoring signal alone — MNAR evidence even without global covariate shifts
+        risk_level = "MEDIUM"
+        recommended_strategy = "mnar_pattern_mixture_sensitivity"
     else:
         risk_level = "LOW"
         recommended_strategy = "mar_chained_equations"

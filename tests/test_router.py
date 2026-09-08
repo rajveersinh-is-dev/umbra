@@ -96,3 +96,44 @@ def test_router_strict_dispatch_and_expected_field():
     )
     assert "expected_dispatch" in res_mnar
     assert isinstance(res_mnar["is_correct"], bool)
+
+
+def test_router_tail_triggered_only_routes_to_medium():
+    """Verify STAT 9.1: tail_triggered alone without covariate shifts routes to MEDIUM."""
+    import numpy as np
+    import pandas as pd
+
+    from umbra.diagnostics.mcar_test import LittleMCARResult
+    from umbra.diagnostics.mnar_risk_score import assess_mnar_risk
+    from umbra.diagnostics.pattern_analysis import PatternAnalysisReport, VariablePatternReport
+
+    rng = np.random.RandomState(42)
+    n = 300
+    x1 = rng.randn(n)
+    y = 2.0 * x1 + rng.randn(n)
+    mask = y > np.percentile(y, 75)
+    df = pd.DataFrame({"x1": x1, "y": y})
+    df.loc[mask, "y"] = np.nan
+
+    mcar_mock = LittleMCARResult(
+        statistic=1.0,
+        degrees_of_freedom=1,
+        p_value=0.8,
+        is_rejected=False,
+        n_patterns=2,
+        n_samples=n,
+        n_features=2,
+    )
+    var_rep = VariablePatternReport(
+        target_column="y",
+        n_total=n,
+        n_missing=int(mask.sum()),
+        missing_rate=float(mask.mean()),
+        covariate_shifts={},
+        n_significant_shifts=0,
+    )
+    pattern_mock = PatternAnalysisReport(variable_reports={"y": var_rep})
+
+    rep = assess_mnar_risk(df, "y", littles_result=mcar_mock, pattern_report=pattern_mock)
+    assert rep.risk_level == "MEDIUM"
+    assert rep.recommended_strategy == "mnar_pattern_mixture_sensitivity"

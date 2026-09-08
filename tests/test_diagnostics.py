@@ -101,6 +101,7 @@ def test_mnar_risk_scoring(benchmarks):
 def test_littles_mcar_performance_vectorized():
     """Verify Little's MCAR test on N=5000, p=8 completes within 15 seconds."""
     import time
+
     rng = np.random.RandomState(42)
     n = 5000
     p = 8

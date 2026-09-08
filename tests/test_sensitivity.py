@@ -49,9 +49,7 @@ def test_sensitivity_custom_downstream_evaluator(benchmarks):
 
 def test_sensitivity_report_summary_and_to_dict(benchmarks):
     data = benchmarks["MNAR_LOW"].data_observed.copy()
-    report = run_sensitivity_grid(
-        data, target_column="income", delta_grid=[-1.0, 0.0, 1.0]
-    )
+    report = run_sensitivity_grid(data, target_column="income", delta_grid=[-1.0, 0.0, 1.0])
 
     summary = report.summary()
     assert "MNAR Sensitivity Grid Analysis" in summary
@@ -67,6 +65,7 @@ def test_sensitivity_report_summary_and_to_dict(benchmarks):
 
 def test_sensitivity_report_with_tipping_points():
     df = pd.DataFrame({"y": [1.0, -1.0, 2.0, -2.0, np.nan, np.nan], "x": [1, 2, 3, 4, 5, 6]})
+
     # Downstream evaluator that flips sign
     def flipper(d):
         return float(d["y"].mean())

@@ -127,7 +127,9 @@ def test_sensitivity_reports_only_medium_high_risk_columns():
     imp.fit(df)
     for col in imp.sensitivity_reports_:
         risk = imp.diagnostics_[col].risk_level
-        assert risk in ("MEDIUM", "HIGH"), f"Column '{col}' had {risk} risk but got sensitivity report"
+        assert risk in ("MEDIUM", "HIGH"), (
+            f"Column '{col}' had {risk} risk but got sensitivity report"
+        )
 
 
 def test_reproducibility_seed_determinism():
