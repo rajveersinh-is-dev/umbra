@@ -20,6 +20,7 @@ Hedeker, D., & Gibbons, R. D. (1997). Application of random-effects pattern-mixt
 models for missing data in longitudinal studies. Psychological Methods, 2(1), 64.
 """
 
+import warnings
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -59,15 +60,24 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         target_cols: Optional[List[str]] = None,
         stochastic: bool = False,
         n_imputations: int = 1,
-        n_draws: Optional[int] = None,
         random_state: Optional[int] = 42,
+        **kwargs,
     ):
+        if "n_draws" in kwargs:
+            warnings.warn(
+                "n_draws is deprecated; use n_imputations instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            n_imputations = kwargs.pop("n_draws")
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
+
         self.delta = delta
         self.shift_type = shift_type
         self.target_cols = target_cols
         self.stochastic = stochastic
-        self.n_imputations = n_draws if n_draws is not None else n_imputations
-        self.n_draws = n_draws
+        self.n_imputations = n_imputations
         self.random_state = random_state
 
         # Fitted attributes

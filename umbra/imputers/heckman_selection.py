@@ -203,15 +203,24 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         shadow_cols: Optional[Dict[str, str]] = None,
         stochastic: bool = False,
         n_imputations: int = 1,
-        n_draws: Optional[int] = None,
         n_bootstrap_se: int = 200,
         random_state: Optional[int] = 42,
+        **kwargs,
     ):
+        if "n_draws" in kwargs:
+            warnings.warn(
+                "n_draws is deprecated; use n_imputations instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            n_imputations = kwargs.pop("n_draws")
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {list(kwargs.keys())}")
+
         self.target_cols = target_cols
         self.shadow_cols = shadow_cols
         self.stochastic = stochastic
-        self.n_imputations = n_draws if n_draws is not None else n_imputations
-        self.n_draws = n_draws
+        self.n_imputations = n_imputations
         self.n_bootstrap_se = n_bootstrap_se
         self.random_state = random_state
 
