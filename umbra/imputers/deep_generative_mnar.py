@@ -134,7 +134,7 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
         self.means_: np.ndarray = np.array([])
         self.stds_: np.ndarray = np.array([])
 
-    def fit(self, X: Union[pd.DataFrame, np.ndarray], y=None):
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Any = None) -> "DeepGenerativeMNARImputer":
         """Train the deep generative MNAR model on observed data."""
         if not HAS_TORCH:
             raise ImportError(

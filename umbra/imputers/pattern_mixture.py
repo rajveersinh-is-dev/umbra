@@ -21,7 +21,7 @@ models for missing data in longitudinal studies. Psychological Methods, 2(1), 64
 """
 
 import warnings
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -61,7 +61,7 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         stochastic: bool = False,
         n_imputations: int = 1,
         random_state: Optional[int] = 42,
-        **kwargs,
+        **kwargs: Any,
     ):
         if "n_draws" in kwargs:
             warnings.warn(
@@ -87,7 +87,7 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         self.feature_names_in_: List[str] = []
         self.n_features_in_: int = 0
 
-    def fit(self, X: Union[pd.DataFrame, np.ndarray], y=None):
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Any = None) -> "PatternMixtureImputer":
         """Fit regression models on observed patterns."""
         df = self._to_dataframe(X).copy()
         self.feature_names_in_ = list(df.columns)
@@ -213,7 +213,7 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         self.fit(X)
         return self.transform(X, return_all_imputations=True)
 
-    def get_feature_names_out(self, input_features=None):
+    def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
         return np.asarray(self.feature_names_in_)
 
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:

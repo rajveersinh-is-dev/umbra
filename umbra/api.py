@@ -10,14 +10,12 @@ Also exposes the standalone `diagnose(X)` function returning an
 """
 
 import warnings
-from typing import Dict, List, Literal, Optional, Tuple, TypeVar, Union, overload
+from typing import Any, Dict, List, Literal, Optional, Tuple, TypeVar, Union, overload
 
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils.validation import check_is_fitted
-
-ArrayOrDataFrame = TypeVar("ArrayOrDataFrame", pd.DataFrame, np.ndarray)
 
 from umbra.diagnostics.mnar_risk_score import MNARRiskReport, diagnose_dataframe
 from umbra.diagnostics.report import diagnose, diagnose_report
@@ -26,6 +24,8 @@ from umbra.imputers.heckman_selection import HeckmanSelectionImputer
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
 from umbra.sensitivity.grid_analysis import SensitivityReport, run_sensitivity_grid
+
+ArrayOrDataFrame = TypeVar("ArrayOrDataFrame", pd.DataFrame, np.ndarray)
 
 __all__ = ["UmbraImputer", "diagnose", "diagnose_report"]
 
@@ -85,7 +85,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         self.random_state = random_state
         self.verbose = verbose
 
-    def fit(self, X: Union[pd.DataFrame, np.ndarray], y=None):
+    def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Any = None) -> "UmbraImputer":
         """Fit UmbraImputer on data:
         1. Runs empirical diagnostic battery (Little's test, covariate shift, tail dependency).
         2. Assigns appropriate imputer per column based on empirical evidence.
@@ -321,12 +321,34 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
             return result, self.diagnostics_
         return result
 
+    @overload
+    def fit_transform(
+        self, X: ArrayOrDataFrame, y: Any = None, return_diagnostics: Literal[False] = False
+    ) -> ArrayOrDataFrame: ...
+
+    @overload
+    def fit_transform(
+        self, X: ArrayOrDataFrame, y: Any = None, return_diagnostics: Literal[True] = True
+    ) -> Tuple[ArrayOrDataFrame, Dict[str, MNARRiskReport]]: ...
+
+    @overload
+    def fit_transform(
+        self, X: ArrayOrDataFrame, y: Any = None, return_diagnostics: bool = False
+    ) -> Union[
+        ArrayOrDataFrame,
+        Tuple[ArrayOrDataFrame, Dict[str, MNARRiskReport]],
+    ]: ...
+
     def fit_transform(
         self,
         X: Union[pd.DataFrame, np.ndarray],
-        y=None,
+        y: Any = None,
         return_diagnostics: bool = False,
-    ):
+    ) -> Union[
+        pd.DataFrame,
+        np.ndarray,
+        Tuple[Union[pd.DataFrame, np.ndarray], Dict[str, MNARRiskReport]],
+    ]:
         """Fit and transform in a single call."""
         return self.fit(X, y).transform(X, return_diagnostics=return_diagnostics)
 
@@ -369,7 +391,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
             imputed_dfs.append(df_i)
         return imputed_dfs
 
-    def explain(self):
+    def explain(self) -> None:
         """Print rich diagnostic and sensitivity report to terminal."""
         check_is_fitted(self, "is_fitted_")
         explain_diagnostics(self.diagnostics_)
@@ -386,7 +408,7 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         check_is_fitted(self, "is_fitted_")
         return self.sensitivity_reports_.get(column)
 
-    def get_feature_names_out(self, input_features=None):
+    def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
         """Get output feature names for transformation."""
         check_is_fitted(self, "is_fitted_")
         return np.asarray(self.feature_names_in_)

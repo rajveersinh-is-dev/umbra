@@ -8,7 +8,7 @@ and Rubin's Rules for pooling multiple imputations and calculating confidence in
 
 import warnings
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -158,7 +158,7 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
         n_donors: int = 5,
         n_imputations: int = 1,
         random_state: Optional[int] = 42,
-        **kwargs,
+        **kwargs: Any,
     ):
         if "n_draws" in kwargs:
             warnings.warn(
@@ -184,7 +184,9 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
         self.feature_names_in_: List[str] = []
         self.n_features_in_: int = 0
 
-    def fit(self, X: Union[pd.DataFrame, np.ndarray], y=None):
+    def fit(
+        self, X: Union[pd.DataFrame, np.ndarray], y: Any = None
+    ) -> "MARChainedEquationsImputer":
         """Fit chained equations models on available data."""
         df = self._to_dataframe(X).copy()
         self.feature_names_in_ = list(df.columns)
@@ -349,7 +351,7 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
         selected_donor_indices = indices[np.arange(len(y_pred_mis)), chosen_offsets]
         return np.asarray(y_obs[selected_donor_indices], dtype=float)
 
-    def get_feature_names_out(self, input_features=None):
+    def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
         return np.asarray(self.feature_names_in_)
 
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:

@@ -21,7 +21,7 @@ from umbra.explain import diagnostics_to_markdown, explain_diagnostics, explain_
 
 @click.group()
 @click.version_option(version=umbra_version, prog_name="umbra")
-def main():
+def main() -> None:
     """Umbra: MNAR-Aware Missing Data Diagnostic and Imputation CLI."""
     pass
 
@@ -35,7 +35,7 @@ def main():
     default=None,
     help="Path to export diagnostic report in GitHub-flavored Markdown.",
 )
-def diagnose(data_path: Path, output_markdown: Optional[Path]):
+def diagnose(data_path: Path, output_markdown: Optional[Path]) -> None:
     """
     Diagnose missingness mechanisms in DATA_PATH and output MNAR risk assessment.
     """
@@ -115,7 +115,7 @@ def impute(
     sensitivity: bool,
     sensitivity_output: Optional[Path],
     shadow_col: tuple,
-):
+) -> None:
     """
     Impute missing values in DATA_PATH with honest MNAR handling and sensitivity intervals.
     """
