@@ -69,3 +69,54 @@ def test_cli_impute_auto(sample_csv: Path, tmp_path: Path):
     assert out_csv.exists()
     df_imp = pd.read_csv(out_csv)
     assert not df_imp["income"].isna().any()
+
+
+def test_cli_diagnose_no_missing(tmp_path: Path):
+    runner = CliRunner()
+    df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    csv_file = tmp_path / "complete.csv"
+    df.to_csv(csv_file, index=False)
+    result = runner.invoke(main, ["diagnose", str(csv_file)])
+    assert result.exit_code == 0
+    assert "No missing values found" in result.output
+
+
+def test_cli_diagnose_bad_file(tmp_path: Path):
+    runner = CliRunner()
+    result = runner.invoke(main, ["diagnose", str(tmp_path / "nonexistent.csv")])
+    assert result.exit_code != 0
+
+
+def test_cli_impute_bad_file(tmp_path: Path):
+    runner = CliRunner()
+    result = runner.invoke(main, ["impute", str(tmp_path / "nonexistent.csv")])
+    assert result.exit_code != 0
+
+
+def test_cli_impute_sensitivity_and_default_output(tmp_path: Path):
+    runner = CliRunner()
+    rng = np.random.RandomState(42)
+    n = 200
+    x = rng.randn(n)
+    y = 2.0 * x + rng.randn(n)
+    mask = y > np.percentile(y, 70)
+    df = pd.DataFrame({"income": y, "x": x})
+    df.loc[mask, "income"] = np.nan
+    csv_file = tmp_path / "data_mnar.csv"
+    df.to_csv(csv_file, index=False)
+
+    sens_out = tmp_path / "sens.csv"
+    result = runner.invoke(
+        main,
+        [
+            "impute",
+            str(csv_file),
+            "--sensitivity",
+            "--sensitivity-output",
+            str(sens_out),
+        ],
+    )
+    assert result.exit_code == 0
+    expected_out = tmp_path / "imputed_data_mnar.csv"
+    assert expected_out.exists()
+    assert sens_out.exists()
