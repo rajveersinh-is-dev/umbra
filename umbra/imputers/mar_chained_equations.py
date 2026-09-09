@@ -16,6 +16,7 @@ from scipy import stats
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import BayesianRidge, Ridge
 from sklearn.neighbors import NearestNeighbors
+from sklearn.utils.validation import check_is_fitted
 
 
 @dataclass
@@ -78,6 +79,14 @@ def rubins_rules(
         Pooled estimate, within variance, between variance, total variance,
         degrees of freedom, and confidence bounds.
     """
+    if len(point_estimates) == 0 or len(variance_estimates) == 0:
+        raise ValueError("rubins_rules requires at least M=1 point and variance estimate.")
+    if len(point_estimates) != len(variance_estimates):
+        raise ValueError(
+            f"Length mismatch: point_estimates has {len(point_estimates)} items, "
+            f"variance_estimates has {len(variance_estimates)} items."
+        )
+
     m = len(point_estimates)
     if m == 1:
         warnings.warn(
@@ -181,16 +190,22 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
         self.incomplete_cols_: List[str] = []
         self.models_: Dict[str, Union[BayesianRidge, Ridge]] = {}
         self.col_medians_: Dict[str, float] = {}
-        self.feature_names_in_: List[str] = []
+        self.feature_names_in_: Union[List[str], np.ndarray] = []
         self.n_features_in_: int = 0
 
     def fit(
         self, X: Union[pd.DataFrame, np.ndarray], y: Any = None
     ) -> "MARChainedEquationsImputer":
         """Fit chained equations models on available data."""
+        if isinstance(X, pd.DataFrame):
+            self.feature_names_in_ = np.asarray(X.columns, dtype=object)
+            self.n_features_in_ = len(self.feature_names_in_)
+        else:
+            self.n_features_in_ = int(X.shape[1])
+            if hasattr(self, "feature_names_in_"):
+                delattr(self, "feature_names_in_")
+
         df = self._to_dataframe(X).copy()
-        self.feature_names_in_ = list(df.columns)
-        self.n_features_in_ = len(self.feature_names_in_)
         self.columns_ = list(df.columns)
 
         for col in self.columns_:
@@ -203,6 +218,7 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
         self.incomplete_cols_.sort(key=lambda c: df[c].isna().sum())
 
         if not self.incomplete_cols_:
+            self.is_fitted_ = True
             return self
 
         # Initial working matrix via median imputation
@@ -256,12 +272,34 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
 
                     working_df.loc[mis_mask, target] = imputed_vals
 
+        self.is_fitted_ = True
         return self
 
     def transform(
         self, X: Union[pd.DataFrame, np.ndarray], return_all_imputations: bool = False
     ) -> Union[pd.DataFrame, List[pd.DataFrame]]:
         """Impute missing values using the fitted chained equations."""
+        check_is_fitted(self, "is_fitted_")
+        n_features = (
+            X.shape[1]
+            if hasattr(X, "shape") and len(X.shape) > 1
+            else len(getattr(X, "columns", []))
+        )
+        if n_features != self.n_features_in_:
+            raise ValueError(
+                f"X has {n_features} features, but {self.__class__.__name__} is expecting {self.n_features_in_} features as input."
+            )
+        if (
+            isinstance(X, pd.DataFrame)
+            and hasattr(self, "feature_names_in_")
+            and self.feature_names_in_ is not None
+        ):
+            if list(X.columns) != list(self.feature_names_in_):
+                raise ValueError(
+                    f"The feature names should match those that were passed during fit. "
+                    f"Expected {list(self.feature_names_in_)}, got {list(X.columns)}"
+                )
+
         df_base = self._to_dataframe(X).copy()
         if not self.incomplete_cols_:
             return [df_base] if return_all_imputations else df_base
@@ -352,14 +390,23 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
         return np.asarray(y_obs[selected_donor_indices], dtype=float)
 
     def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
-        return np.asarray(self.feature_names_in_)
+        check_is_fitted(self, "is_fitted_")
+        if input_features is not None:
+            if len(input_features) != self.n_features_in_:
+                raise ValueError(
+                    f"input_features should have length equal to number of features ({self.n_features_in_}), "
+                    f"got {len(input_features)}"
+                )
+            return np.asarray(input_features, dtype=object)
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            return np.asarray(self.feature_names_in_, dtype=object)
+        return np.asarray([f"x{i}" for i in range(self.n_features_in_)], dtype=object)
 
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         if isinstance(X, pd.DataFrame):
             return X
-        cols = (
-            self.feature_names_in_
-            if self.feature_names_in_
-            else [f"x_{i}" for i in range(X.shape[1])]
-        )
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            cols = [str(c) for c in self.feature_names_in_]
+        else:
+            cols = [f"x{i}" for i in range(X.shape[1])]
         return pd.DataFrame(X, columns=cols)

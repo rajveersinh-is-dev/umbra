@@ -16,8 +16,10 @@ Random (MCAR) against the alternative H1: Data are NOT MCAR.
 - CRUCIALLY, Little's test CANNOT distinguish between MAR and MNAR.
 """
 
+import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, Union
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -94,6 +96,12 @@ class LittleMCARResult:
             "pattern_details": self.pattern_details,
             "note": self.note,
         }
+
+    def to_json(self, path: Optional[Union[str, Path]] = None, indent: int = 2) -> str:
+        content = json.dumps(self.to_dict(), indent=indent)
+        if path is not None:
+            Path(path).write_text(content, encoding="utf-8")
+        return content
 
 
 def _em_multivariate_normal(

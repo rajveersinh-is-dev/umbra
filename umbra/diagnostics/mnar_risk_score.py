@@ -197,7 +197,11 @@ def _evaluate_residual_tail_dependency(
     if not pd.api.types.is_numeric_dtype(data[target_col]):
         return 0.0, 0.0, {"status": "non_numeric_target"}
 
-    num_covars = [c for c in covariate_cols if pd.api.types.is_numeric_dtype(data[c])]
+    num_covars = [
+        c
+        for c in covariate_cols
+        if pd.api.types.is_numeric_dtype(data[c]) and data[c].notna().any()
+    ]
     if obs_mask.sum() < 20 or is_missing.sum() < 10 or not num_covars:
         return 0.0, 0.0, {"status": "insufficient_samples"}
 
@@ -211,7 +215,7 @@ def _evaluate_residual_tail_dependency(
         return 0.0, 0.0, {"status": "constant_covariates"}
 
     X_obs = X_obs[:, valid_pred_indices]
-    sub_covars = [covariate_cols[i] for i in valid_pred_indices]
+    sub_covars = [num_covars[i] for i in valid_pred_indices]
 
     # Fit regularized Ridge regression on observed data
     try:

@@ -122,3 +122,10 @@ def test_heckman_rubin_pooled_ci_wider_than_single_plug_in():
         f"Expected Rubin pooled CI width ({res_multiple.ci_width_95:.4f}) > "
         f"single plug-in width ({res_single.ci_width_95:.4f})"
     )
+
+
+def test_rubins_rules_input_validation():
+    with pytest.raises(ValueError, match="rubins_rules requires at least M=1"):
+        rubins_rules([], [])
+    with pytest.raises(ValueError, match="Length mismatch"):
+        rubins_rules([1.0, 2.0], [0.1])

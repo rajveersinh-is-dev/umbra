@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import Ridge
+from sklearn.utils.validation import check_is_fitted
 
 
 class PatternMixtureImputer(BaseEstimator, TransformerMixin):
@@ -84,14 +85,20 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         self.models_: Dict[str, Ridge] = {}
         self.residual_sigmas_: Dict[str, float] = {}
         self.col_medians_: Dict[str, float] = {}
-        self.feature_names_in_: List[str] = []
+        self.feature_names_in_: Union[List[str], np.ndarray] = []
         self.n_features_in_: int = 0
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Any = None) -> "PatternMixtureImputer":
         """Fit regression models on observed patterns."""
+        if isinstance(X, pd.DataFrame):
+            self.feature_names_in_ = np.asarray(X.columns, dtype=object)
+            self.n_features_in_ = len(self.feature_names_in_)
+        else:
+            self.n_features_in_ = int(X.shape[1])
+            if hasattr(self, "feature_names_in_"):
+                delattr(self, "feature_names_in_")
+
         df = self._to_dataframe(X).copy()
-        self.feature_names_in_ = list(df.columns)
-        self.n_features_in_ = len(self.feature_names_in_)
 
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]) and df[col].notna().any():
@@ -140,12 +147,34 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
             self.models_[target] = reg
             self.residual_sigmas_[target] = max(1e-6, sigma)
 
+        self.is_fitted_ = True
         return self
 
     def transform(
         self, X: Union[pd.DataFrame, np.ndarray], return_all_imputations: bool = False
     ) -> Union[pd.DataFrame, List[pd.DataFrame]]:
         """Impute missing values applying the pattern-mixture delta shift."""
+        check_is_fitted(self, "is_fitted_")
+        n_features = (
+            X.shape[1]
+            if hasattr(X, "shape") and len(X.shape) > 1
+            else len(getattr(X, "columns", []))
+        )
+        if n_features != self.n_features_in_:
+            raise ValueError(
+                f"X has {n_features} features, but {self.__class__.__name__} is expecting {self.n_features_in_} features as input."
+            )
+        if (
+            isinstance(X, pd.DataFrame)
+            and hasattr(self, "feature_names_in_")
+            and self.feature_names_in_ is not None
+        ):
+            if list(X.columns) != list(self.feature_names_in_):
+                raise ValueError(
+                    f"The feature names should match those that were passed during fit. "
+                    f"Expected {list(self.feature_names_in_)}, got {list(X.columns)}"
+                )
+
         df_base = self._to_dataframe(X).copy()
         rng = np.random.RandomState(self.random_state)
         n_draws = max(1, self.n_imputations if self.stochastic or self.n_imputations > 1 else 1)
@@ -214,14 +243,23 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
         return self.transform(X, return_all_imputations=True)
 
     def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
-        return np.asarray(self.feature_names_in_)
+        check_is_fitted(self, "is_fitted_")
+        if input_features is not None:
+            if len(input_features) != self.n_features_in_:
+                raise ValueError(
+                    f"input_features should have length equal to number of features ({self.n_features_in_}), "
+                    f"got {len(input_features)}"
+                )
+            return np.asarray(input_features, dtype=object)
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            return np.asarray(self.feature_names_in_, dtype=object)
+        return np.asarray([f"x{i}" for i in range(self.n_features_in_)], dtype=object)
 
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         if isinstance(X, pd.DataFrame):
             return X
-        cols = (
-            self.feature_names_in_
-            if self.feature_names_in_
-            else [f"x_{i}" for i in range(X.shape[1])]
-        )
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            cols = [str(c) for c in self.feature_names_in_]
+        else:
+            cols = [f"x{i}" for i in range(X.shape[1])]
         return pd.DataFrame(X, columns=cols)

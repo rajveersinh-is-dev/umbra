@@ -21,6 +21,7 @@ from typing import Any, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_is_fitted
 
 try:
     import torch
@@ -133,6 +134,8 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
         self.columns_: List[str] = []
         self.means_: np.ndarray = np.array([])
         self.stds_: np.ndarray = np.array([])
+        self.feature_names_in_: Union[List[str], np.ndarray] = []
+        self.n_features_in_: int = 0
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Any = None) -> "DeepGenerativeMNARImputer":
         """Train the deep generative MNAR model on observed data."""
@@ -144,6 +147,14 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
         if self.random_state is not None:
             torch.manual_seed(self.random_state)
             np.random.seed(self.random_state)
+
+        if isinstance(X, pd.DataFrame):
+            self.feature_names_in_ = np.asarray(X.columns, dtype=object)
+            self.n_features_in_ = len(self.feature_names_in_)
+        else:
+            self.n_features_in_ = int(X.shape[1])
+            if hasattr(self, "feature_names_in_"):
+                delattr(self, "feature_names_in_")
 
         df = self._to_dataframe(X)
         self.columns_ = list(df.columns)
@@ -198,12 +209,36 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
                 total_loss.backward()
                 optimizer.step()
 
+        self.is_fitted_ = True
         return self
 
     def transform(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         """Impute missing values using the trained joint generative model."""
-        if not HAS_TORCH or self.model_ is None:
-            raise RuntimeError("DeepGenerativeMNARImputer is not fitted.")
+        if not HAS_TORCH:
+            raise ImportError(
+                "PyTorch is required for DeepGenerativeMNARImputer. Install with `pip install torch`."
+            )
+        check_is_fitted(self, "is_fitted_")
+        assert self.model_ is not None
+        n_features = (
+            X.shape[1]
+            if hasattr(X, "shape") and len(X.shape) > 1
+            else len(getattr(X, "columns", []))
+        )
+        if n_features != self.n_features_in_:
+            raise ValueError(
+                f"X has {n_features} features, but {self.__class__.__name__} is expecting {self.n_features_in_} features as input."
+            )
+        if (
+            isinstance(X, pd.DataFrame)
+            and hasattr(self, "feature_names_in_")
+            and self.feature_names_in_ is not None
+        ):
+            if list(X.columns) != list(self.feature_names_in_):
+                raise ValueError(
+                    f"The feature names should match those that were passed during fit. "
+                    f"Expected {list(self.feature_names_in_)}, got {list(X.columns)}"
+                )
 
         df = self._to_dataframe(X).copy()
         X_arr = df.to_numpy(dtype=float, copy=True)
@@ -229,8 +264,24 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
 
         return pd.DataFrame(X_arr, columns=self.columns_, index=df.index)
 
+    def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
+        check_is_fitted(self, "is_fitted_")
+        if input_features is not None:
+            if len(input_features) != self.n_features_in_:
+                raise ValueError(
+                    f"input_features should have length equal to number of features ({self.n_features_in_}), "
+                    f"got {len(input_features)}"
+                )
+            return np.asarray(input_features, dtype=object)
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            return np.asarray(self.feature_names_in_, dtype=object)
+        return np.asarray([f"x{i}" for i in range(self.n_features_in_)], dtype=object)
+
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         if isinstance(X, pd.DataFrame):
             return X
-        cols = self.columns_ if self.columns_ else [f"col_{i}" for i in range(X.shape[1])]
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            cols = [str(c) for c in self.feature_names_in_]
+        else:
+            cols = [f"x{i}" for i in range(X.shape[1])]
         return pd.DataFrame(X, columns=cols)

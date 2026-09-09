@@ -236,6 +236,8 @@ def run_sensitivity_grid(
     # Extract bounds within plausible range [-1.0, +1.0]
     plausible_mask = grid_df["delta"].between(-1.0, 1.0)
     plausible_metrics = grid_df.loc[plausible_mask, "downstream_metric"]
+    if len(plausible_metrics) == 0:
+        plausible_metrics = grid_df["downstream_metric"]
 
     est_min = float(plausible_metrics.min())
     est_max = float(plausible_metrics.max())

@@ -3,17 +3,26 @@ Unit tests for Umbra diagnostics module.
 """
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from scripts.build_synthetic_benchmarks import generate_benchmark_battery
 from umbra.diagnostics.mcar_test import littles_mcar_test
-from umbra.diagnostics.mnar_risk_score import assess_mnar_risk, diagnose_dataframe
+from umbra.diagnostics.mnar_risk_score import (
+    _evaluate_residual_tail_dependency,
+    assess_mnar_risk,
+    diagnose_dataframe,
+)
 from umbra.diagnostics.pattern_analysis import (
     analyze_missingness_patterns,
     compute_cliffs_delta,
     compute_cohens_d,
 )
-from umbra.diagnostics.shadow_variable_finder import find_shadow_variables
+from umbra.diagnostics.shadow_variable_finder import (
+    _compute_first_stage_f_stat,
+    find_shadow_variables,
+)
+from umbra.sensitivity.grid_analysis import run_sensitivity_grid
 
 
 @pytest.fixture(scope="module")
@@ -119,3 +128,87 @@ def test_littles_mcar_performance_vectorized():
     assert res.statistic >= 0.0
     assert 0.0 <= res.p_value <= 1.0
     assert elapsed < 15.0, f"Little's test on N=5000 took {elapsed:.2f}s, expected < 15s"
+
+
+def test_littles_mcar_to_json(tmp_path):
+    X = np.random.randn(50, 3)
+    X[0:5, 0] = np.nan
+    res = littles_mcar_test(X)
+
+    # String export
+    json_str = res.to_json()
+    assert '"statistic"' in json_str
+    assert '"p_value"' in json_str
+
+    # File export
+    out_file = tmp_path / "mcar_result.json"
+    res.to_json(path=out_file)
+    assert out_file.exists()
+    assert '"statistic"' in out_file.read_text(encoding="utf-8")
+
+
+def test_first_stage_f_stat_zero_residual():
+    # If Z perfectly predicts R, ssr_unres == 0
+    R = np.array([0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0])
+    Z = R.copy()  # perfect predictor
+    X_covars = np.ones((len(R), 1))
+    f_stat = _compute_first_stage_f_stat(R, Z, X_covars)
+    assert f_stat >= 0.0
+    assert np.isfinite(f_stat)
+
+
+def test_tail_dependency_all_nan_covariate():
+    rng = np.random.RandomState(42)
+    n = 100
+    df = pd.DataFrame(
+        {
+            "target": np.where(rng.rand(n) < 0.3, np.nan, rng.randn(n)),
+            "covar_good": rng.randn(n),
+            "covar_all_nan": [np.nan] * n,
+        }
+    )
+    # Should not crash on all-NaN covariate
+    r_pred, tail_ratio, meta = _evaluate_residual_tail_dependency(
+        df, "target", ["covar_good", "covar_all_nan"]
+    )
+    assert np.isfinite(r_pred)
+    assert np.isfinite(tail_ratio)
+
+
+def test_sensitivity_grid_non_overlapping_plausible_range():
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, np.nan, 4.0, 5.0, np.nan, 7.0, 8.0],
+            "x": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+        }
+    )
+    # Custom delta grid entirely outside [-1.0, 1.0]
+    report = run_sensitivity_grid(df, "y", delta_grid=[2.0, 3.0], random_state=42)
+    assert report.estimate_min <= report.estimate_max
+    assert np.isfinite(report.uncertainty_spread)
+
+
+def test_littles_mcar_summary():
+    X = np.random.randn(50, 3)
+    X[0:5, 0] = np.nan
+    res = littles_mcar_test(X)
+    summary_text = res.summary()
+    assert "Little's MCAR Test" in summary_text
+    assert "Chi-squared Statistic" in summary_text
+
+
+def test_covariate_shift_categorical_summary():
+    from umbra.diagnostics.pattern_analysis import CovariateShift
+
+    shift = CovariateShift(
+        covariate_name="cat_var",
+        is_numeric=False,
+        chi2_statistic=12.4,
+        chi2_p_value=0.002,
+        cramers_v=0.35,
+        is_significant=True,
+    )
+    s = shift.summary()
+    assert "Chi2=" in s
+    assert "Cramer's V=" in s
+    assert "SHIFT DETECTED" in s

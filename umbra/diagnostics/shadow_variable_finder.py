@@ -257,7 +257,8 @@ def _compute_first_stage_f_stat(R: np.ndarray, Z: np.ndarray, X_covars: np.ndarr
 
         df_num = 1
         df_denom = max(1.0, df_unres)
-        f_stat = ((ssr_res - ssr_unres) / df_num) / (ssr_unres / df_denom)
+        denom = max(1e-12, ssr_unres / df_denom)
+        f_stat = ((ssr_res - ssr_unres) / df_num) / denom
         return float(max(0.0, f_stat))
     except Exception:
         # Fallback to simple bivariate F-stat: t^2

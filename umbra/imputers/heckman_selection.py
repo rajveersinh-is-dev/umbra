@@ -29,6 +29,7 @@ import pandas as pd
 import statsmodels.api as sm
 from scipy import stats
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_is_fitted
 
 __all__ = ["HeckmanSelectionImputer", "WeakInstrumentWarning", "HeckmanSEWarning"]
 
@@ -238,14 +239,20 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         # Fitted attributes
         self.models_: Dict[str, Dict[str, Any]] = {}
         self.col_medians_: Dict[str, float] = {}
-        self.feature_names_in_: List[str] = []
+        self.feature_names_in_: Union[List[str], np.ndarray] = []
         self.n_features_in_: int = 0
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Any = None) -> "HeckmanSelectionImputer":
         """Fit Heckman selection models for target columns."""
+        if isinstance(X, pd.DataFrame):
+            self.feature_names_in_ = np.asarray(X.columns, dtype=object)
+            self.n_features_in_ = len(self.feature_names_in_)
+        else:
+            self.n_features_in_ = int(X.shape[1])
+            if hasattr(self, "feature_names_in_"):
+                delattr(self, "feature_names_in_")
+
         df = self._to_dataframe(X).copy()
-        self.feature_names_in_ = list(df.columns)
-        self.n_features_in_ = len(self.feature_names_in_)
 
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]) and df[col].notna().any():
@@ -405,12 +412,34 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
                 "shadow_var": shadow_var,
             }
 
+        self.is_fitted_ = True
         return self
 
     def transform(
         self, X: Union[pd.DataFrame, np.ndarray], return_all_imputations: bool = False
     ) -> Union[pd.DataFrame, List[pd.DataFrame]]:
         """Impute missing values using the fitted Heckman selection model."""
+        check_is_fitted(self, "is_fitted_")
+        n_features = (
+            X.shape[1]
+            if hasattr(X, "shape") and len(X.shape) > 1
+            else len(getattr(X, "columns", []))
+        )
+        if n_features != self.n_features_in_:
+            raise ValueError(
+                f"X has {n_features} features, but {self.__class__.__name__} is expecting {self.n_features_in_} features as input."
+            )
+        if (
+            isinstance(X, pd.DataFrame)
+            and hasattr(self, "feature_names_in_")
+            and self.feature_names_in_ is not None
+        ):
+            if list(X.columns) != list(self.feature_names_in_):
+                raise ValueError(
+                    f"The feature names should match those that were passed during fit. "
+                    f"Expected {list(self.feature_names_in_)}, got {list(X.columns)}"
+                )
+
         if not self.models_:
             df = self._to_dataframe(X).copy()
             return [df] if return_all_imputations else df
@@ -481,14 +510,23 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         return self.transform(X, return_all_imputations=True)
 
     def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
-        return np.asarray(self.feature_names_in_)
+        check_is_fitted(self, "is_fitted_")
+        if input_features is not None:
+            if len(input_features) != self.n_features_in_:
+                raise ValueError(
+                    f"input_features should have length equal to number of features ({self.n_features_in_}), "
+                    f"got {len(input_features)}"
+                )
+            return np.asarray(input_features, dtype=object)
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            return np.asarray(self.feature_names_in_, dtype=object)
+        return np.asarray([f"x{i}" for i in range(self.n_features_in_)], dtype=object)
 
     def _to_dataframe(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
         if isinstance(X, pd.DataFrame):
             return X
-        cols = (
-            self.feature_names_in_
-            if self.feature_names_in_
-            else [f"x_{i}" for i in range(X.shape[1])]
-        )
+        if hasattr(self, "feature_names_in_") and self.feature_names_in_ is not None:
+            cols = [str(c) for c in self.feature_names_in_]
+        else:
+            cols = [f"x{i}" for i in range(X.shape[1])]
         return pd.DataFrame(X, columns=cols)
