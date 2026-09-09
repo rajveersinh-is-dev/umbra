@@ -11,7 +11,9 @@ Provides statistically principled imputation models across missingness mechanism
 
 from umbra.imputers.deep_generative_mnar import DeepGenerativeMNARImputer
 from umbra.imputers.heckman_selection import (
+    HeckmanConvergenceWarning,
     HeckmanSelectionImputer,
+    HeckmanSEWarning,
     WeakInstrumentWarning,
 )
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer, rubins_rules
@@ -21,6 +23,8 @@ __all__ = [
     "MARChainedEquationsImputer",
     "HeckmanSelectionImputer",
     "WeakInstrumentWarning",
+    "HeckmanSEWarning",
+    "HeckmanConvergenceWarning",
     "PatternMixtureImputer",
     "DeepGenerativeMNARImputer",
     "rubins_rules",

@@ -107,9 +107,13 @@ def test_heckman_bootstrap_se_variance_inflation():
 
     df = pd.DataFrame({"x": x, "z": z, "y": y})
 
-    # Fit with naive OLS (n_bootstrap_se=0)
+    # Fit with naive OLS (se_method="naive", n_bootstrap_se=0)
     imp_naive = HeckmanSelectionImputer(
-        target_cols=["y"], shadow_cols={"y": "z"}, n_bootstrap_se=0, random_state=42
+        target_cols=["y"],
+        shadow_cols={"y": "z"},
+        se_method="naive",
+        n_bootstrap_se=0,
+        random_state=42,
     )
     with pytest.warns(HeckmanSEWarning):
         imp_naive.fit(df)

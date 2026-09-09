@@ -27,14 +27,14 @@ This roadmap resolves the open econometric, statistical, and benchmarking limita
   2. Full-Information Maximum Likelihood (`method='fiml'`) converges on bivariate normal selection problems and produces consistent estimates and joint parameter covariance.
   3. All tests pass with strict type compliance and zero regression in existing test suite.
 
-**Plans**: 0/2 plans executed
+**Plans**: 2/2 plans executed
 
 Plans:
 
-- [ ] 01-01-PLAN.md
-- [ ] 01-02-PLAN.md
-- [ ] 01-01: Implement Murphy-Topel analytical asymptotic covariance correction in `HeckmanSelectionImputer`.
-- [ ] 01-02: Implement Full-Information Maximum Likelihood (FIML) Heckman estimation and selection model switcher.
+- [x] 01-01-PLAN.md
+- [x] 01-02-PLAN.md
+- [x] 01-01: Implement Murphy-Topel analytical asymptotic covariance correction in `HeckmanSelectionImputer`.
+- [x] 01-02: Implement Full-Information Maximum Likelihood (FIML) Heckman estimation and selection model switcher.
 
 ### Phase 2: Ill-Conditioned Design Matrices (Ridge Sandwich SE & VIF Collinearity)
 
