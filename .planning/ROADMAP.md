@@ -111,12 +111,14 @@ Plans:
   2. Automated dataset loaders cleanly fetch and parse observational datasets (CPS wage data, NHANES biomarkers).
   3. Comparative benchmarks evaluate Umbra against standard baselines across diverse real and amputed missingness regimes.
 
-**Plans**: 2 plans
+**Plans**: 2/2 plans executed
 
 Plans:
 
-- [ ] 05-01: Implement `ampute_multivariate` engine supporting MAR and MNAR mechanism patterns.
-- [ ] 05-02: Add observational dataset loaders and comparative benchmark suite.
+- [x] 05-01-PLAN.md
+- [x] 05-02-PLAN.md
+- [x] 05-01: Implement `ampute_multivariate` engine supporting MAR and MNAR mechanism patterns.
+- [x] 05-02: Add observational dataset loaders and comparative benchmark suite.
 
 ### Phase 6: Identifiability & Sensitivity Auditing (Manski Bounds & Audit Certificates)
 

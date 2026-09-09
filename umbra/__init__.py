@@ -50,6 +50,13 @@ from umbra.imputers.heckman_selection import (
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
 from umbra.imputers.rubin_pooler import RubinPooler, RubinsRulesResult, rubins_rules
+from umbra.benchmark.amputation import AmputationResult, ampute_multivariate
+from umbra.data.loaders import (
+    load_california_housing,
+    load_clinical_trial_attrition,
+    load_cps_wage,
+    load_nhanes_biomarkers,
+)
 from umbra.sensitivity.grid_analysis import (
     SensitivityReport,
     TippingPoint,
@@ -102,4 +109,10 @@ __all__ = [
     "compute_bayes_optimal_threshold",
     "compute_expected_losses",
     "get_decision_profile",
+    "ampute_multivariate",
+    "AmputationResult",
+    "load_cps_wage",
+    "load_nhanes_biomarkers",
+    "load_california_housing",
+    "load_clinical_trial_attrition",
 ]

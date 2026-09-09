@@ -469,12 +469,19 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         col_norms = np.linalg.norm(X_star, axis=0)
         col_norms = np.where(col_norms < 1e-12, 1.0, col_norms)
         X_scaled = X_star / col_norms
+        if not np.all(np.isfinite(X_scaled)):
+            X_scaled = np.nan_to_num(X_scaled, nan=0.0, posinf=1e6, neginf=-1e6)
 
-        _, s, _ = np.linalg.svd(X_scaled, full_matrices=False)
-        s_max = float(s[0]) if len(s) > 0 else 1.0
-        s_min = float(s[-1]) if len(s) > 0 else 1.0
-        condition_number = float(s_max / max(1e-16, s_min))
-        condition_indices = (s_max / np.maximum(1e-16, s)).tolist()
+        try:
+            _, s, _ = np.linalg.svd(X_scaled, full_matrices=False)
+            s_max = float(s[0]) if len(s) > 0 else 1.0
+            s_min = float(s[-1]) if len(s) > 0 else 1.0
+            condition_number = float(s_max / max(1e-16, s_min))
+            condition_indices = (s_max / np.maximum(1e-16, s)).tolist()
+        except np.linalg.LinAlgError:
+            # Extreme ill-conditioning / numerical singularity where SVD fails to converge
+            condition_number = 1e12
+            condition_indices = [1e12] * p
 
         # VIF computation for each column
         vif_dict: Dict[str, float] = {}
@@ -757,12 +764,16 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
                 probit_res = probit_mod.fit(disp=False, maxiter=100)
                 gamma = probit_res.params
                 V1 = probit_res.cov_params()
+                if np.any(np.isnan(gamma)) or np.any(np.isinf(gamma)):
+                    raise ValueError("Probit params contain non-finite values.")
             except Exception:
                 try:
                     logit_mod = sm.Logit(R, W_mat)
                     logit_res = logit_mod.fit(disp=False, maxiter=100)
                     gamma = logit_res.params / 1.6  # Standard Probit approximation
                     V1 = (logit_res.cov_params()) / (1.6**2)
+                    if np.any(np.isnan(gamma)) or np.any(np.isinf(gamma)):
+                        raise ValueError("Logit params contain non-finite values.")
                 except Exception:
                     # Fallback linear probability model
                     ols_lpm = sm.OLS(R, W_mat).fit()
@@ -770,7 +781,11 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
                     V1 = (ols_lpm.cov_params()) * (2.5**2)
 
             eta = W_mat @ gamma
+            if not np.all(np.isfinite(eta)):
+                eta = np.nan_to_num(eta, nan=0.0, posinf=10.0, neginf=-10.0)
             lambda_1 = _compute_imr_observed(eta[obs_mask])
+            if not np.all(np.isfinite(lambda_1)):
+                lambda_1 = np.nan_to_num(lambda_1, nan=0.0, posinf=10.0, neginf=0.0)
 
             # Step 2: Outcome regression on observed cases
             X_df = df.loc[obs_mask, X_cols].fillna(df[X_cols].median())
@@ -778,6 +793,8 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
 
             # Augmented regression design: [1, X, lambda_1]
             design_obs = np.column_stack([X_mat_obs, lambda_1])
+            if not np.all(np.isfinite(design_obs)):
+                design_obs = np.nan_to_num(design_obs, nan=0.0, posinf=1e6, neginf=-1e6)
             y_obs = df.loc[obs_mask, target].to_numpy(dtype=float)
 
             # Collinearity diagnostics for second stage
