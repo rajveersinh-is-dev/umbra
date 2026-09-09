@@ -275,6 +275,13 @@ python -m benchmarks.misspecification_benchmark
 If you use Umbra in academic research, please cite:
 
 ```bibtex
+@software{pardeshi2026umbra,
+  title={Umbra: Honest Missing Data Diagnostics, Sensitivity Analysis & MNAR Imputation},
+  author={Pardeshi, Rajveersinh Vishal},
+  year={2026},
+  url={https://github.com/Raj123-0/umbra}
+}
+
 @article{heckman1979sample,
   title={Sample selection bias as a specification error},
   author={Heckman, James J},

@@ -9,7 +9,7 @@ description = "Diagnose and honestly handle Not-Missing-At-Random (MNAR) data â€
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "Raj" }
+    { name = "Rajveersinh Vishal Pardeshi", email = "rajveer28dec@gmail.com" }
 ]
 requires-python = ">=3.10"
 keywords = [

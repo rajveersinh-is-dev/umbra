@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use Umbra in your research, please cite it as below."
 title: "Umbra: Honest Missing Data Diagnostics, Sensitivity Analysis & MNAR Imputation"
 authors:
-  - family-names: "Sharma"
-    given-names: "Raj"
+  - family-names: "Pardeshi"
+    given-names: "Rajveersinh Vishal"
     orcid: "https://orcid.org/0009-0000-0000-0000"
 version: 0.2.0
 date-released: 2026-09-04

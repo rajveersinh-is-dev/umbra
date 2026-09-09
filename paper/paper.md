@@ -1,6 +1,6 @@
 # Umbra: A Python Library for Honest Missing-Not-At-Random Diagnostics, Sensitivity Analysis, and Scikit-Learn Pipelines
 
-**Authors**: Umbra Open Source Research & Engineering Group  
+**Authors**: Rajveersinh Vishal Pardeshi, Umbra Open Source Research & Engineering Group  
 **Target Venue**: *Journal of Statistical Software* / *Journal of Machine Learning Research (Open Source Software Track)*  
 
 ---
