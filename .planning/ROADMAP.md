@@ -6,8 +6,8 @@ This roadmap resolves the open econometric, statistical, and benchmarking limita
 
 ## Phases
 
-- [ ] **Phase 1: Heckman Selection Asymptotic SE Correction (Murphy-Topel & FIML)** - Exact analytical two-step standard errors and full-information maximum likelihood estimation.
-- [ ] **Phase 2: Ill-Conditioned Design Matrices (Ridge Sandwich SE & VIF Collinearity)** - Sandwich covariance for Ridge fallback and collinearity diagnostics for selection equations.
+- [x] **Phase 1: Heckman Selection Asymptotic SE Correction (Murphy-Topel & FIML)** - Exact analytical two-step standard errors and full-information maximum likelihood estimation.
+- [x] **Phase 2: Ill-Conditioned Design Matrices (Ridge Sandwich SE & VIF Collinearity)** - Sandwich covariance for Ridge fallback and collinearity diagnostics for selection equations.
 - [ ] **Phase 3: Multiple Imputation & Rubin Pooling Engine** - Multi-draw stochastic imputation interface and Rubin pooling with Barnard-Rubin small-sample degrees of freedom.
 - [ ] **Phase 4: Cost-Sensitive Risk Routing & Empirical Calibration** - Bayes-optimal decision thresholds under asymmetric loss matrices and Platt/Isotonic score calibration.
 - [ ] **Phase 5: Observational Real-World Benchmarks & Multivariate Amputation** - Real-world dataset loaders (CPS, NHANES) and Schouten et al. multivariate amputation engine.
@@ -44,16 +44,16 @@ Plans:
 **Requirements**: HECK-03, HECK-04
 **Success Criteria** (what must be TRUE):
 
-  1. Ridge fallback produces valid sandwich covariance and Bayesian posterior standard errors rather than setting standard errors to NaN.
+  1. Ridge fallback produces valid sandwich covariance and standard errors rather than setting standard errors to NaN.
   2. Condition number and Variance Inflation Factor (VIF) diagnostics detect and report collinearity between regressors and the inverse Mills ratio.
   3. Paired bootstrap standard errors execute cleanly without crashing even when Ridge regularization is active.
 
-**Plans**: 2 plans
+**Plans**: 1/1 plan executed
 
 Plans:
 
-- [ ] 02-01: Implement generalized Ridge sandwich covariance and Bayesian posterior standard errors.
-- [ ] 02-02: Implement VIF and condition number diagnostics for selection design matrices.
+- [x] 02-01-PLAN.md
+- [x] 02-01: Implement Ridge regularized sandwich covariance and VIF/condition index diagnostics for Heckman selection models.
 
 ### Phase 3: Multiple Imputation & Rubin Pooling Engine
 

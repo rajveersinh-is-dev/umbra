@@ -46,6 +46,7 @@ __all__ = [
     "WeakInstrumentWarning",
     "HeckmanSEWarning",
     "HeckmanConvergenceWarning",
+    "HeckmanCollinearityWarning",
 ]
 
 
@@ -63,6 +64,12 @@ class HeckmanSEWarning(UserWarning):
 
 class HeckmanConvergenceWarning(UserWarning):
     """Warning emitted when Heckman FIML estimation fails to converge or produces a non-positive-definite Hessian, falling back to two-step."""
+
+    pass
+
+
+class HeckmanCollinearityWarning(UserWarning):
+    """Warning emitted when the Heckman second-stage design matrix is ill-conditioned (condition index > 30 or VIF > 10)."""
 
     pass
 
@@ -235,6 +242,14 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         - 'murphy-topel': Exact analytical Murphy & Topel (1985) asymptotic covariance.
         - 'bootstrap': Nonparametric paired bootstrap across both stages.
         - 'naive': Uncorrected OLS standard errors (emits HeckmanSEWarning).
+    ridge_alpha : float, default=1.0
+        Regularization penalty for Ridge regression fallback when the second-stage
+        design matrix is ill-conditioned or singular.
+    ridge_se_method : Literal["sandwich", "nan"], default="sandwich"
+        Method for standard errors when Ridge fallback is triggered:
+        - 'sandwich': Analytical regularized sandwich covariance matrix
+          V_ridge = sigma^2 Q_alpha M Q_alpha, preserving first-stage uncertainty.
+        - 'nan': Legacy mode setting standard errors to NaNs.
     stochastic : bool, default=False
         If True, draws normal noise with conditional variance Var(Y | R=0).
     n_imputations : int, default=1
@@ -252,6 +267,8 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         shadow_cols: Optional[Dict[str, str]] = None,
         method: Literal["two-step", "fiml"] = "two-step",
         se_method: Optional[Literal["murphy-topel", "bootstrap", "naive"]] = None,
+        ridge_alpha: float = 1.0,
+        ridge_se_method: Literal["sandwich", "nan"] = "sandwich",
         stochastic: bool = False,
         n_imputations: int = 1,
         n_bootstrap_se: int = 0,
@@ -272,6 +289,8 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         self.shadow_cols = shadow_cols
         self.method = method
         self.se_method = se_method
+        self.ridge_alpha = ridge_alpha
+        self.ridge_se_method = ridge_se_method
         self.stochastic = stochastic
         self.n_imputations = n_imputations
         self.n_bootstrap_se = n_bootstrap_se
@@ -291,6 +310,7 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         self.sigma_: float = np.nan
         self.rho_: float = np.nan
         self.log_likelihood_: Optional[float] = None
+        self.collinearity_diagnostics_: Dict[str, Any] = {}
 
     def _compute_murphy_topel_covariance(
         self,
@@ -351,6 +371,150 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         V2 = sigma2_eps * (Q @ M @ Q)
         V2 = 0.5 * (V2 + V2.T)
         return np.asarray(V2, dtype=float)
+
+    def _compute_ridge_sandwich_covariance(
+        self,
+        X_star: np.ndarray,
+        W_obs: np.ndarray,
+        y_obs: np.ndarray,
+        beta_star: np.ndarray,
+        V1: np.ndarray,
+        delta: np.ndarray,
+        alpha: float = 1.0,
+    ) -> np.ndarray:
+        """Compute regularized Ridge sandwich covariance matrix for Heckman second stage.
+
+        Formula:
+          Q_alpha = (X_*^T X_* + alpha * I)^{-1}
+          M = X_*^T (I - rho^2 Delta) X_* + X_*^T Delta W V1 W^T Delta X_*
+          V_ridge = sigma^2 (Q_alpha M Q_alpha)
+
+        Parameters
+        ----------
+        X_star : np.ndarray of shape (n1, k + 1)
+            Augmented design matrix [X_obs, lambda_1] for observed cases.
+        W_obs : np.ndarray of shape (n1, m)
+            Probit selection design matrix for observed cases.
+        y_obs : np.ndarray of shape (n1,)
+            Target variable values for observed cases.
+        beta_star : np.ndarray of shape (k + 1,)
+            Regularized Ridge coefficients [beta, beta_lambda].
+        V1 : np.ndarray of shape (m, m)
+            First-stage Probit parameter covariance matrix cov_params().
+        delta : np.ndarray of shape (n1,)
+            Selection hazard curvature delta_i = lambda_1 * (lambda_1 + eta_obs).
+        alpha : float, default=1.0
+            Ridge regularization parameter (Tikhonov penalty).
+
+        Returns
+        -------
+        V_ridge : np.ndarray of shape (k + 1, k + 1)
+            Asymptotic regularized sandwich covariance matrix.
+        """
+        e_obs = y_obs - (X_star @ beta_star)
+        beta_lambda = float(beta_star[-1])
+        mean_delta = float(np.mean(delta))
+        sigma2_eps = float(np.mean(e_obs**2) + (beta_lambda**2) * mean_delta)
+        sigma_eps = float(np.sqrt(max(1e-8, sigma2_eps)))
+        rho = float(np.clip(beta_lambda / sigma_eps, -0.999, 0.999))
+
+        # Curvature weight for second-stage heteroskedasticity
+        D = 1.0 - (rho**2) * delta
+
+        # Q_alpha = (X_*^T X_* + alpha * I)^{-1}
+        p = X_star.shape[1]
+        XtX = X_star.T @ X_star
+        regularized_XtX = XtX + alpha * np.eye(p)
+        Q_alpha = np.linalg.inv(regularized_XtX)
+
+        # M = X_*^T (I - rho^2 Delta) X_* + X_*^T Delta W_obs V1 W_obs^T Delta X_*
+        term1 = (X_star * D[:, np.newaxis]).T @ X_star
+        A = X_star.T @ (delta[:, np.newaxis] * W_obs)
+        term2 = A @ V1 @ A.T
+        M = term1 + term2
+
+        V_ridge = sigma2_eps * (Q_alpha @ M @ Q_alpha)
+        V_ridge = 0.5 * (V_ridge + V_ridge.T)
+        return np.asarray(V_ridge, dtype=float)
+
+    def _compute_collinearity_diagnostics(
+        self,
+        X_star: np.ndarray,
+        col_names: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Compute Variance Inflation Factors (VIF) and Belsley condition indices for design matrix.
+
+        Parameters
+        ----------
+        X_star : np.ndarray of shape (n1, p)
+            Augmented design matrix [X_obs, lambda_1] for observed cases.
+        col_names : Optional[List[str]], default=None
+            Names of the columns in X_star.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing:
+            - "condition_number": Condition number of unit-norm scaled design matrix (kappa).
+            - "condition_indices": List of Belsley condition indices (eta_j).
+            - "vif": Dictionary mapping column names to VIFs.
+            - "vif_lambda": VIF of the inverse Mills ratio regressor lambda_1.
+            - "severe_collinearity": bool indicating if kappa > 30 or VIF(lambda_1) > 10.
+        """
+        n, p = X_star.shape
+        if col_names is None or len(col_names) != p:
+            col_names = [f"col_{i}" for i in range(p)]
+
+        # Unit-norm scaling for Belsley condition indices
+        col_norms = np.linalg.norm(X_star, axis=0)
+        col_norms = np.where(col_norms < 1e-12, 1.0, col_norms)
+        X_scaled = X_star / col_norms
+
+        _, s, _ = np.linalg.svd(X_scaled, full_matrices=False)
+        s_max = float(s[0]) if len(s) > 0 else 1.0
+        s_min = float(s[-1]) if len(s) > 0 else 1.0
+        condition_number = float(s_max / max(1e-16, s_min))
+        condition_indices = (s_max / np.maximum(1e-16, s)).tolist()
+
+        # VIF computation for each column
+        vif_dict: Dict[str, float] = {}
+        for i, name in enumerate(col_names):
+            y_i = X_star[:, i]
+            cols_noti = [j for j in range(p) if j != i]
+            X_noti = X_star[:, cols_noti]
+
+            y_var = float(np.var(y_i))
+            if y_var < 1e-12:
+                # Intercept or constant column
+                vif_dict[name] = 1.0
+                continue
+
+            try:
+                coef, _, _, _ = np.linalg.lstsq(X_noti, y_i, rcond=None)
+                pred = X_noti @ coef
+                ss_tot = float(np.sum((y_i - np.mean(y_i)) ** 2))
+                ss_res = float(np.sum((y_i - pred) ** 2))
+                r2 = max(0.0, 1.0 - (ss_res / max(1e-12, ss_tot)))
+                if r2 >= 1.0 - 1e-12:
+                    vif = 1e12
+                else:
+                    vif = 1.0 / (1.0 - r2)
+                vif_dict[name] = float(min(1e12, vif))
+            except Exception:
+                vif_dict[name] = float("inf")
+
+        vif_lambda = float(vif_dict.get(col_names[-1], np.nan))
+        severe_collinearity = bool(
+            condition_number > 30.0 or (np.isfinite(vif_lambda) and vif_lambda > 10.0)
+        )
+
+        return {
+            "condition_number": condition_number,
+            "condition_indices": condition_indices,
+            "vif": vif_dict,
+            "vif_lambda": vif_lambda,
+            "severe_collinearity": severe_collinearity,
+        }
 
     @staticmethod
     def _fiml_neg_log_likelihood(
@@ -523,6 +687,13 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
         targets = self.target_cols or [c for c in df.columns if df[c].isna().any()]
         shadow_map = self.shadow_cols or {}
 
+        if self.ridge_se_method not in ("sandwich", "nan"):
+            raise ValueError(
+                f"ridge_se_method must be 'sandwich' or 'nan', got {self.ridge_se_method!r}"
+            )
+        if self.ridge_alpha <= 0:
+            raise ValueError(f"ridge_alpha must be positive, got {self.ridge_alpha}")
+
         # Resolve effective standard error method for two-step
         if self.se_method is not None:
             eff_se_method = self.se_method
@@ -609,6 +780,19 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
             design_obs = np.column_stack([X_mat_obs, lambda_1])
             y_obs = df.loc[obs_mask, target].to_numpy(dtype=float)
 
+            # Collinearity diagnostics for second stage
+            col_names = ["const"] + list(X_cols) + ["mills_ratio"]
+            collin_diag = self._compute_collinearity_diagnostics(design_obs, col_names=col_names)
+            if collin_diag["severe_collinearity"]:
+                warnings.warn(
+                    f"Severe collinearity detected in Heckman second stage for target '{target}'. "
+                    f"Condition index: {collin_diag['condition_number']:.1f} (threshold > 30), "
+                    f"VIF(lambda): {collin_diag['vif_lambda']:.1f} (threshold > 10). "
+                    "Second-stage standard errors and estimates may be unstable due to weak exclusion restriction.",
+                    HeckmanCollinearityWarning,
+                    stacklevel=2,
+                )
+
             ridge_fallback_used = False
             try:
                 if np.linalg.matrix_rank(design_obs) < design_obs.shape[1]:
@@ -682,27 +866,57 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
                 # Regularized ridge fallback
                 from sklearn.linear_model import Ridge
 
-                warnings.warn(
-                    "Heckman second-stage OLS failed due to near-singular design matrix. "
-                    "Ridge regression fallback was used. Standard errors are set to NaN, "
-                    "not zero, to prevent silent zero-width confidence intervals. "
-                    "Imputed point estimates may still be reasonable but uncertainty "
-                    "quantification is unavailable for this column.",
-                    HeckmanSEWarning,
-                    stacklevel=3,
-                )
-                r_est = Ridge(alpha=1.0, fit_intercept=False).fit(design_obs, y_obs)
+                ridge_fallback_used = True
+                r_est = Ridge(alpha=self.ridge_alpha, fit_intercept=False).fit(design_obs, y_obs)
                 params = r_est.coef_
                 beta = params[:-1]
                 beta_lambda = float(params[-1])
-                sigma_eps = float(max(1e-4, np.std(y_obs)))
-                rho = 0.0
-                std_errors = np.full_like(params, np.nan)
-                mt_se = np.full_like(params, np.nan)
-                V2 = np.full((len(params), len(params)), np.nan)
-                coef_cov = V2
-                ridge_fallback_used = True
                 bootstrap_se = None
+
+                if self.ridge_se_method == "sandwich":
+                    warnings.warn(
+                        "Heckman second-stage OLS failed due to near-singular design matrix. "
+                        f"Ridge regression fallback was used (alpha={self.ridge_alpha}) with regularized "
+                        "sandwich covariance. Standard errors reflect regularized estimation uncertainty.",
+                        HeckmanSEWarning,
+                        stacklevel=2,
+                    )
+                    e_obs = y_obs - (design_obs @ params)
+                    delta_1 = lambda_1 * (lambda_1 + eta[obs_mask])
+                    mean_delta_1 = float(np.mean(delta_1))
+                    sigma2_eps = float(np.mean(e_obs**2) + (beta_lambda**2) * mean_delta_1)
+                    sigma_eps = float(np.sqrt(max(1e-8, sigma2_eps)))
+                    rho = float(np.clip(beta_lambda / sigma_eps, -0.999, 0.999))
+
+                    V_ridge = self._compute_ridge_sandwich_covariance(
+                        X_star=design_obs,
+                        W_obs=W_mat[obs_mask],
+                        y_obs=y_obs,
+                        beta_star=params,
+                        V1=V1,
+                        delta=delta_1,
+                        alpha=self.ridge_alpha,
+                    )
+                    std_errors = np.sqrt(np.maximum(1e-16, np.diag(V_ridge)))
+                    mt_se = std_errors
+                    coef_cov = V_ridge
+                    V2 = V_ridge
+                else:
+                    warnings.warn(
+                        "Heckman second-stage OLS failed due to near-singular design matrix. "
+                        "Ridge regression fallback was used. Standard errors are set to NaN, "
+                        "not zero, to prevent silent zero-width confidence intervals. "
+                        "Imputed point estimates may still be reasonable but uncertainty "
+                        "quantification is unavailable for this column.",
+                        HeckmanSEWarning,
+                        stacklevel=2,
+                    )
+                    sigma_eps = float(max(1e-4, np.std(y_obs)))
+                    rho = 0.0
+                    std_errors = np.full_like(params, np.nan)
+                    mt_se = np.full_like(params, np.nan)
+                    V2 = np.full((len(params), len(params)), np.nan)
+                    coef_cov = V2
 
             method_used: Literal["two-step", "fiml"] = "two-step"
             log_likelihood: Optional[float] = None
@@ -758,6 +972,8 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
                 "W_cols": W_cols,
                 "X_cols": X_cols,
                 "shadow_var": shadow_var,
+                "collinearity_diagnostics": collin_diag,
+                "ridge_fallback_used": ridge_fallback_used,
             }
             if bootstrap_se is not None:
                 model_info["bootstrap_stderr"] = bootstrap_se
@@ -772,6 +988,8 @@ class HeckmanSelectionImputer(BaseEstimator, TransformerMixin):
             self.sigma_ = sigma_eps
             self.rho_ = rho
             self.log_likelihood_ = log_likelihood
+            self.collinearity_diagnostics_ = collin_diag
+            self.ridge_fallback_used_ = ridge_fallback_used
             if bootstrap_se is not None:
                 self.bootstrap_stderr_ = bootstrap_se
 

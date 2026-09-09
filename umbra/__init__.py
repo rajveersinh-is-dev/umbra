@@ -32,7 +32,13 @@ from umbra.diagnostics.shadow_variable_finder import (
     find_shadow_variables,
 )
 from umbra.explain import diagnostics_to_markdown, explain_diagnostics, explain_sensitivity
-from umbra.imputers.heckman_selection import HeckmanSelectionImputer
+from umbra.imputers.heckman_selection import (
+    HeckmanCollinearityWarning,
+    HeckmanConvergenceWarning,
+    HeckmanSelectionImputer,
+    HeckmanSEWarning,
+    WeakInstrumentWarning,
+)
 from umbra.imputers.mar_chained_equations import (
     MARChainedEquationsImputer,
     rubins_rules,
@@ -70,6 +76,10 @@ __all__ = [
     "DiagnosticSignal",
     "MARChainedEquationsImputer",
     "HeckmanSelectionImputer",
+    "WeakInstrumentWarning",
+    "HeckmanSEWarning",
+    "HeckmanConvergenceWarning",
+    "HeckmanCollinearityWarning",
     "PatternMixtureImputer",
     "rubins_rules",
     "run_sensitivity_grid",

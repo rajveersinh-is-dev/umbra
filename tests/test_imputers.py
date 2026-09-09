@@ -146,7 +146,11 @@ def test_heckman_ridge_fallback_warning_and_nans():
     df_sing = pd.DataFrame({"x1": x1, "x2": x2, "z": z, "y": y})
 
     imp_sing = HeckmanSelectionImputer(
-        target_cols=["y"], shadow_cols={"y": "z"}, n_bootstrap_se=50, random_state=42
+        target_cols=["y"],
+        shadow_cols={"y": "z"},
+        ridge_se_method="nan",
+        n_bootstrap_se=50,
+        random_state=42,
     )
     with pytest.warns(HeckmanSEWarning, match="Ridge regression fallback was used"):
         imp_sing.fit(df_sing)
