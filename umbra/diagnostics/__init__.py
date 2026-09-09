@@ -9,6 +9,15 @@ Provides empirical diagnostics for missing data mechanisms:
 - UmbraDiagnosticReport: Comprehensive structured diagnostic report
 """
 
+from umbra.diagnostics.identifiability_audit import (
+    IdentifiabilityCertificate,
+    audit_identifiability,
+)
+from umbra.diagnostics.manski_bounds import (
+    ManskiBoundsResult,
+    compute_dataframe_manski_bounds,
+    compute_manski_bounds,
+)
 from umbra.diagnostics.mcar_test import LittleMCARResult, littles_mcar_test
 from umbra.diagnostics.mnar_risk_score import (
     DiagnosticSignal,
@@ -66,4 +75,9 @@ __all__ = [
     "compute_bayes_optimal_threshold",
     "compute_expected_losses",
     "get_decision_profile",
+    "ManskiBoundsResult",
+    "compute_manski_bounds",
+    "compute_dataframe_manski_bounds",
+    "IdentifiabilityCertificate",
+    "audit_identifiability",
 ]

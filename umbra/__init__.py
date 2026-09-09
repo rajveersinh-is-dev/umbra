@@ -8,6 +8,22 @@ and assess how conclusions change under plausible departures from MAR.
 """
 
 from umbra.api import UmbraImputer, diagnose, diagnose_report
+from umbra.benchmark.amputation import AmputationResult, ampute_multivariate
+from umbra.data.loaders import (
+    load_california_housing,
+    load_clinical_trial_attrition,
+    load_cps_wage,
+    load_nhanes_biomarkers,
+)
+from umbra.diagnostics.identifiability_audit import (
+    IdentifiabilityCertificate,
+    audit_identifiability,
+)
+from umbra.diagnostics.manski_bounds import (
+    ManskiBoundsResult,
+    compute_dataframe_manski_bounds,
+    compute_manski_bounds,
+)
 from umbra.diagnostics.mcar_test import LittleMCARResult, littles_mcar_test
 from umbra.diagnostics.mnar_risk_score import (
     DiagnosticSignal,
@@ -50,13 +66,6 @@ from umbra.imputers.heckman_selection import (
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
 from umbra.imputers.rubin_pooler import RubinPooler, RubinsRulesResult, rubins_rules
-from umbra.benchmark.amputation import AmputationResult, ampute_multivariate
-from umbra.data.loaders import (
-    load_california_housing,
-    load_clinical_trial_attrition,
-    load_cps_wage,
-    load_nhanes_biomarkers,
-)
 from umbra.sensitivity.grid_analysis import (
     SensitivityReport,
     TippingPoint,
@@ -115,4 +124,9 @@ __all__ = [
     "load_nhanes_biomarkers",
     "load_california_housing",
     "load_clinical_trial_attrition",
+    "ManskiBoundsResult",
+    "compute_manski_bounds",
+    "compute_dataframe_manski_bounds",
+    "IdentifiabilityCertificate",
+    "audit_identifiability",
 ]

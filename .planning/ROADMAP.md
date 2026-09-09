@@ -131,12 +131,14 @@ Plans:
   1. `UmbraDiagnosticReport` emits Manski worst-case bounds for missing variables under zero untestable assumptions.
   2. Diagnostic reports include an Identifiability & Assumption Audit certificate detailing what testable implications hold and what requires domain assumptions.
 
-**Plans**: 2 plans
+**Plans**: 2/2 plans executed
 
 Plans:
 
-- [ ] 06-01: Implement Manski partial identifiability bounds in diagnostic suite.
-- [ ] 06-02: Implement machine-verifiable Identifiability & Assumption Audit certificate in `UmbraDiagnosticReport`.
+- [x] 06-01-PLAN.md
+- [x] 06-02-PLAN.md
+- [x] 06-01: Implement Manski partial identifiability bounds in diagnostic suite.
+- [x] 06-02: Implement machine-verifiable Identifiability & Assumption Audit certificate in `UmbraDiagnosticReport`.
 
 ---
 *Roadmap defined: 2026-09-09*

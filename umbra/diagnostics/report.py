@@ -19,6 +19,10 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
+from umbra.diagnostics.identifiability_audit import (
+    IdentifiabilityCertificate,
+    audit_identifiability,
+)
 from umbra.diagnostics.mcar_test import LittleMCARResult, littles_mcar_test
 from umbra.diagnostics.mnar_risk_score import MNARRiskReport, assess_mnar_risk
 from umbra.diagnostics.pattern_analysis import PatternAnalysisReport, analyze_missingness_patterns
@@ -47,6 +51,8 @@ class UmbraDiagnosticReport:
         Synthesized risk scores and converging evidence indicators.
     sensitivity : Dict[str, SensitivityReport]
         Sensitivity sweeps and tipping point analyses across delta grids.
+    identifiability_certificates : Dict[str, IdentifiabilityCertificate]
+        Nonparametric Manski partial identifiability bounds and assumption audit certificates.
     warnings : List[str]
         Methodological caveats and identifiability limitations.
     recommendations : Dict[str, str]
@@ -59,6 +65,9 @@ class UmbraDiagnosticReport:
     shadow_variables: Dict[str, AuxiliaryVariableReport]
     mnar_evidence: Dict[str, MNARRiskReport]
     sensitivity: Dict[str, SensitivityReport] = field(default_factory=dict)
+    identifiability_certificates: Dict[str, IdentifiabilityCertificate] = field(
+        default_factory=dict
+    )
     warnings: List[str] = field(default_factory=list)
     recommendations: Dict[str, str] = field(default_factory=dict)
     n_samples: int = 0
@@ -146,6 +155,21 @@ class UmbraDiagnosticReport:
                     lines.append(
                         f"    - Tipping Point: crosses zero at delta={tp.tipping_delta:+.2f} std devs"
                     )
+        if self.identifiability_certificates:
+            lines.extend(
+                [
+                    "",
+                    "TIER 5: MANSKI PARTIAL IDENTIFICATION & AUDIT CERTIFICATES",
+                    "----------------------------------------------------------------------",
+                ]
+            )
+            for col, cert in self.identifiability_certificates.items():
+                mb = cert.manski_bounds
+                lines.append(
+                    f"  * '{col}': Verdict={cert.audit_verdict} | Manski Mean=[{mb.mean_lower_bound:.3f}, {mb.mean_upper_bound:.3f}] "
+                    f"(width={mb.mean_interval_width:.3f}) | Zero Untestable Assumptions"
+                )
+
         lines.extend(
             [
                 "",
@@ -232,6 +256,9 @@ class UmbraDiagnosticReport:
                     ],
                 }
                 for k, v in self.sensitivity.items()
+            },
+            "tier5_identifiability_certificates": {
+                k: v.to_dict() for k, v in self.identifiability_certificates.items()
             },
             "recommendations": self.recommendations,
         }
@@ -342,6 +369,20 @@ class UmbraDiagnosticReport:
                 "",
             ]
         )
+
+        if self.identifiability_certificates:
+            lines.extend(
+                [
+                    "---",
+                    "",
+                    "## 6. Identifiability & Assumption Audit Certificates (Phase 6)",
+                    "",
+                ]
+            )
+            for cert in self.identifiability_certificates.values():
+                lines.append(cert.to_markdown())
+                lines.append("")
+
         content = "\n".join(lines)
         if path is not None:
             Path(path).write_text(content, encoding="utf-8")
@@ -492,6 +533,19 @@ def diagnose_report(
                 sens = run_sensitivity_grid(df, target_column=col, random_state=random_state)
                 sensitivity_reports[col] = sens
 
+    # 5. Identifiability & Assumption Audit Certificates (Phase 6)
+    identifiability_certificates: Dict[str, IdentifiabilityCertificate] = {}
+    for col in missing_cols:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            s_cand = shadow_cols.get(col) if shadow_cols else None
+            cert = audit_identifiability(
+                feature=col,
+                df=df,
+                risk_report=mnar_reports.get(col),
+                shadow_var=s_cand,
+            )
+            identifiability_certificates[col] = cert
+
     # Formulate explicit warnings
     warnings_list = [
         "MNAR Non-Identifiability Limit: MNAR cannot generally be distinguished from MAR using observed data alone. "
@@ -513,6 +567,7 @@ def diagnose_report(
         shadow_variables=shadow_reports,
         mnar_evidence=mnar_reports,
         sensitivity=sensitivity_reports,
+        identifiability_certificates=identifiability_certificates,
         warnings=warnings_list,
         recommendations=recommendations,
         n_samples=n_samples,
