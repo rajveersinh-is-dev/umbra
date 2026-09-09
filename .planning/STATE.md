@@ -1,10 +1,10 @@
 ---
 gsd_state_version: '1.0'
-status: planning
+status: ready to execute
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 13
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -22,8 +22,8 @@ See: .planning/PROJECT.md (updated 2026-09-09)
 
 Phase: 1 of 6 (Heckman Selection Asymptotic SE Correction (Murphy-Topel & FIML))
 Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-09-09 — Initialized project roadmap addressing 6 limitations in docs/limitations.md
+Status: Ready to execute
+Last activity: 2026-09-09 — Created Phase 1 plans (01-01-PLAN.md, 01-02-PLAN.md)
 
 Progress: [░░░░░░░░░░] 0%
 
