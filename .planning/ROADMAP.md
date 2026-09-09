@@ -8,7 +8,7 @@ This roadmap resolves the open econometric, statistical, and benchmarking limita
 
 - [x] **Phase 1: Heckman Selection Asymptotic SE Correction (Murphy-Topel & FIML)** - Exact analytical two-step standard errors and full-information maximum likelihood estimation.
 - [x] **Phase 2: Ill-Conditioned Design Matrices (Ridge Sandwich SE & VIF Collinearity)** - Sandwich covariance for Ridge fallback and collinearity diagnostics for selection equations.
-- [ ] **Phase 3: Multiple Imputation & Rubin Pooling Engine** - Multi-draw stochastic imputation interface and Rubin pooling with Barnard-Rubin small-sample degrees of freedom.
+- [x] **Phase 3: Multiple Imputation & Rubin Pooling Engine** - Multi-draw stochastic imputation interface and Rubin pooling with Barnard-Rubin small-sample degrees of freedom.
 - [ ] **Phase 4: Cost-Sensitive Risk Routing & Empirical Calibration** - Bayes-optimal decision thresholds under asymmetric loss matrices and Platt/Isotonic score calibration.
 - [ ] **Phase 5: Observational Real-World Benchmarks & Multivariate Amputation** - Real-world dataset loaders (CPS, NHANES) and Schouten et al. multivariate amputation engine.
 - [ ] **Phase 6: Identifiability & Sensitivity Auditing (Manski Bounds & Audit Certificates)** - Worst-case partial identifiability bounds and machine-verifiable assumption certificates.
@@ -67,13 +67,16 @@ Plans:
   2. `RubinPooler` combines point and variance estimates across $M$ draws, computing fraction of missing information (FMI) and Barnard-Rubin (1999) degrees of freedom.
   3. Simulation runner benchmarks report Rubin-pooled coverage and confidence interval widths alongside single-imputation metrics.
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans executed
 
 Plans:
 
-- [ ] 03-01: Add `transform_multiple()` across all stochastic imputers in Umbra.
-- [ ] 03-02: Implement `RubinPooler` with Barnard-Rubin (1999) small-sample degrees-of-freedom corrections.
-- [ ] 03-03: Update benchmarking simulation runner to compute multi-imputation coverage.
+- [x] 03-01-PLAN.md
+- [x] 03-02-PLAN.md
+- [x] 03-03-PLAN.md
+- [x] 03-01: Add `transform_multiple()` across all stochastic imputers in Umbra.
+- [x] 03-02: Implement `RubinPooler` with Barnard-Rubin (1999) small-sample degrees-of-freedom corrections.
+- [x] 03-03: Update benchmarking simulation runner to compute multi-imputation coverage.
 
 ### Phase 4: Cost-Sensitive Risk Routing & Empirical Calibration
 

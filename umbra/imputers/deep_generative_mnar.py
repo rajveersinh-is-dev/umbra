@@ -110,6 +110,10 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
         Batch size.
     lr : float, default=1e-3
         Learning rate.
+    stochastic : bool, default=False
+        If True, draws latent samples z ~ N(mu, sigma^2) during imputation.
+    n_imputations : int, default=1
+        Number of imputed datasets generated (M).
     random_state : Optional[int], default=42
         Seed for reproducibility.
     """
@@ -121,6 +125,8 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
         epochs: int = 60,
         batch_size: int = 64,
         lr: float = 1e-3,
+        stochastic: bool = False,
+        n_imputations: int = 1,
         random_state: Optional[int] = 42,
     ):
         self.latent_dim = latent_dim
@@ -128,6 +134,8 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
         self.epochs = epochs
         self.batch_size = batch_size
         self.lr = lr
+        self.stochastic = stochastic
+        self.n_imputations = n_imputations
         self.random_state = random_state
 
         self.model_: Optional[Any] = None
@@ -212,7 +220,9 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
         self.is_fitted_ = True
         return self
 
-    def transform(self, X: Union[pd.DataFrame, np.ndarray]) -> pd.DataFrame:
+    def transform(
+        self, X: Union[pd.DataFrame, np.ndarray], return_all_imputations: bool = False
+    ) -> Union[pd.DataFrame, List[pd.DataFrame]]:
         """Impute missing values using the trained joint generative model."""
         if not HAS_TORCH:
             raise ImportError(
@@ -241,28 +251,77 @@ class DeepGenerativeMNARImputer(BaseEstimator, TransformerMixin):
                 )
 
         df = self._to_dataframe(X).copy()
-        X_arr = df.to_numpy(dtype=float, copy=True)
-        mask_arr = (~np.isnan(X_arr)).astype(np.float32)
+        X_orig = df.to_numpy(dtype=float, copy=True)
+        mask_arr = (~np.isnan(X_orig)).astype(np.float32)
 
-        X_norm = (X_arr - self.means_) / self.stds_
+        X_norm = (X_orig - self.means_) / self.stds_
         X_zero = np.nan_to_num(X_norm, nan=0.0).astype(np.float32)
 
         tensor_x = torch.tensor(X_zero, dtype=torch.float32)
         tensor_m = torch.tensor(mask_arr, dtype=torch.float32)
 
+        n_draws = max(1, self.n_imputations if self.stochastic or self.n_imputations > 1 else 1)
+        if self.random_state is not None:
+            torch.manual_seed(self.random_state)
+
         self.model_.eval()
+        imputed_dfs: List[pd.DataFrame] = []
+
         with torch.no_grad():
-            mu_z, _ = self.model_.encode(tensor_x, tensor_m)
-            x_recon_norm = self.model_.decode(mu_z).cpu().numpy()
+            mu_z, logvar_z = self.model_.encode(tensor_x, tensor_m)
 
-        # Unstandardize
-        x_recon = x_recon_norm * self.stds_ + self.means_
+            for draw in range(n_draws):
+                if self.stochastic or n_draws > 1:
+                    z = self.model_.reparameterize(mu_z, logvar_z)
+                else:
+                    z = mu_z
 
-        # Replace only missing values
-        mis_indices = np.where(mask_arr == 0)
-        X_arr[mis_indices] = x_recon[mis_indices]
+                x_recon_norm = self.model_.decode(z).cpu().numpy()
+                x_recon = x_recon_norm * self.stds_ + self.means_
 
-        return pd.DataFrame(X_arr, columns=self.columns_, index=df.index)
+                X_draw = X_orig.copy()
+                mis_indices = np.where(mask_arr == 0)
+                X_draw[mis_indices] = x_recon[mis_indices]
+                imputed_dfs.append(pd.DataFrame(X_draw, columns=self.columns_, index=df.index))
+
+        if return_all_imputations:
+            return imputed_dfs
+        return imputed_dfs[0]
+
+    def transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Generate multiple complete imputed datasets from the fitted deep generative model."""
+        check_is_fitted(self, "is_fitted_")
+        target_m = m if m is not None else (self.n_imputations if self.n_imputations > 1 else 5)
+        old_m = self.n_imputations
+        old_seed = self.random_state
+        try:
+            self.n_imputations = target_m
+            if random_state is not None:
+                self.random_state = random_state
+                if HAS_TORCH:
+                    torch.manual_seed(random_state)
+            res = self.transform(X, return_all_imputations=True)
+            return res if isinstance(res, list) else [res]
+        finally:
+            self.n_imputations = old_m
+            self.random_state = old_seed
+
+    def fit_transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Fit deep generative model and generate M stochastic multiple imputations."""
+        if random_state is not None:
+            self.random_state = random_state
+        self.fit(X)
+        return self.transform_multiple(X, m=m, random_state=random_state)
 
     def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
         check_is_fitted(self, "is_fitted_")

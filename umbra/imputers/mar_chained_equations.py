@@ -7,138 +7,22 @@ and Rubin's Rules for pooling multiple imputations and calculating confidence in
 """
 
 import warnings
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.linear_model import BayesianRidge, Ridge
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils.validation import check_is_fitted
 
+from umbra.imputers.rubin_pooler import RubinsRulesResult, rubins_rules
 
-@dataclass
-class RubinsRulesResult:
-    """Result of pooling multiple imputation estimates via Rubin's (1987) rules."""
-
-    pooled_estimate: float
-    within_variance: float
-    between_variance: float
-    total_variance: float
-    standard_error: float
-    df: float
-    ci_lower: float
-    ci_upper: float
-
-    @property
-    def pooled_mean(self) -> float:
-        return self.pooled_estimate
-
-    @property
-    def degrees_of_freedom(self) -> float:
-        return self.df
-
-    def __getitem__(self, item: str) -> float:
-        val = getattr(self, item)
-        return float(val)
-
-    def to_dict(self) -> Dict[str, float]:
-        return {
-            "pooled_estimate": self.pooled_estimate,
-            "within_variance": self.within_variance,
-            "between_variance": self.between_variance,
-            "total_variance": self.total_variance,
-            "standard_error": self.standard_error,
-            "df": self.df,
-            "ci_lower": self.ci_lower,
-            "ci_upper": self.ci_upper,
-        }
-
-
-def rubins_rules(
-    point_estimates: List[float],
-    variance_estimates: List[float],
-    alpha: float = 0.05,
-) -> RubinsRulesResult:
-    """Pool multiple imputation estimates using Rubin's (1987) Rules.
-
-    Parameters
-    ----------
-    point_estimates : List[float]
-        Estimates Q_hat_m across M imputations.
-    variance_estimates : List[float]
-        Within-imputation variance estimates U_hat_m across M imputations.
-    alpha : float, default=0.05
-        Significance level for pooled confidence interval.
-
-    Returns
-    -------
-    RubinsRulesResult
-        Pooled estimate, within variance, between variance, total variance,
-        degrees of freedom, and confidence bounds.
-    """
-    if len(point_estimates) == 0 or len(variance_estimates) == 0:
-        raise ValueError("rubins_rules requires at least M=1 point and variance estimate.")
-    if len(point_estimates) != len(variance_estimates):
-        raise ValueError(
-            f"Length mismatch: point_estimates has {len(point_estimates)} items, "
-            f"variance_estimates has {len(variance_estimates)} items."
-        )
-
-    m = len(point_estimates)
-    if m == 1:
-        warnings.warn(
-            "rubins_rules called with M=1 imputation. Between-imputation variance is zero "
-            "by construction (not because uncertainty is small). Use M>=5 for valid pooled inference.",
-            UserWarning,
-            stacklevel=2,
-        )
-        q_bar = point_estimates[0]
-        t_var = variance_estimates[0]
-        z = stats.norm.ppf(1.0 - alpha / 2.0)
-        return RubinsRulesResult(
-            pooled_estimate=float(q_bar),
-            within_variance=float(t_var),
-            between_variance=0.0,
-            total_variance=float(t_var),
-            standard_error=float(np.sqrt(max(1e-12, t_var))),
-            df=float("inf"),
-            ci_lower=float(q_bar - z * np.sqrt(max(1e-12, t_var))),
-            ci_upper=float(q_bar + z * np.sqrt(max(1e-12, t_var))),
-        )
-
-    q_bar = np.mean(point_estimates)
-    u_bar = np.mean(variance_estimates)
-    b_var = np.var(point_estimates, ddof=1)
-    t_var = u_bar + (1.0 + 1.0 / m) * b_var
-
-    # Barnard & Rubin (1999) degrees of freedom
-    df_val: float
-    if b_var > 1e-12:
-        r = (1.0 + 1.0 / m) * b_var / max(1e-12, u_bar)
-        df_val = float((m - 1) * (1.0 + 1.0 / r) ** 2)
-    else:
-        df_val = float("inf")
-
-    se = np.sqrt(max(1e-12, t_var))
-    crit = (
-        stats.t.ppf(1.0 - alpha / 2.0, df_val)
-        if np.isfinite(df_val)
-        else stats.norm.ppf(1.0 - alpha / 2.0)
-    )
-
-    return RubinsRulesResult(
-        pooled_estimate=float(q_bar),
-        within_variance=float(u_bar),
-        between_variance=float(b_var),
-        total_variance=float(t_var),
-        standard_error=float(se),
-        df=float(df_val),
-        ci_lower=float(q_bar - crit * se),
-        ci_upper=float(q_bar + crit * se),
-    )
+__all__ = [
+    "MARChainedEquationsImputer",
+    "RubinsRulesResult",
+    "rubins_rules",
+]
 
 
 class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
@@ -365,10 +249,54 @@ class MARChainedEquationsImputer(BaseEstimator, TransformerMixin):
             return imputed_dfs
         return imputed_dfs[0]
 
-    def fit_transform_multiple(self, X: Union[pd.DataFrame, np.ndarray]) -> List[pd.DataFrame]:
-        """Fit chained equations and generate all M stochastic multiple imputations."""
+    def transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Generate multiple complete imputed datasets from the fitted imputer.
+
+        Parameters
+        ----------
+        X : Union[pd.DataFrame, np.ndarray]
+            Data matrix containing missing values.
+        m : Optional[int], default=None
+            Number of multiple imputations (M). If None, defaults to self.n_imputations
+            if > 1, else 5 (standard Rubin multiple imputation minimum).
+        random_state : Optional[int], default=None
+            Optional random seed for reproducibility.
+
+        Returns
+        -------
+        List[pd.DataFrame]
+            List of M complete imputed pandas DataFrames.
+        """
+        check_is_fitted(self, "is_fitted_")
+        target_m = m if m is not None else (self.n_imputations if self.n_imputations > 1 else 5)
+        old_m = self.n_imputations
+        old_seed = self.random_state
+        try:
+            self.n_imputations = target_m
+            if random_state is not None:
+                self.random_state = random_state
+            res = self.transform(X, return_all_imputations=True)
+            return res if isinstance(res, list) else [res]
+        finally:
+            self.n_imputations = old_m
+            self.random_state = old_seed
+
+    def fit_transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Fit chained equations and generate M stochastic multiple imputations."""
+        if random_state is not None:
+            self.random_state = random_state
         self.fit(X)
-        return self.transform(X, return_all_imputations=True)
+        return self.transform_multiple(X, m=m, random_state=random_state)
 
     def _pmm_draw(
         self,

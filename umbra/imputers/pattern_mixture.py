@@ -237,10 +237,54 @@ class PatternMixtureImputer(BaseEstimator, TransformerMixin):
             return imputed_dfs
         return imputed_dfs[0]
 
-    def fit_transform_multiple(self, X: Union[pd.DataFrame, np.ndarray]) -> List[pd.DataFrame]:
-        """Fit pattern mixture model and generate all M stochastic multiple imputations."""
+    def transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Generate multiple complete imputed datasets from the fitted pattern mixture model.
+
+        Parameters
+        ----------
+        X : Union[pd.DataFrame, np.ndarray]
+            Data matrix containing missing values.
+        m : Optional[int], default=None
+            Number of multiple imputations (M). If None, defaults to self.n_imputations
+            if > 1, else 5 (standard Rubin multiple imputation minimum).
+        random_state : Optional[int], default=None
+            Optional random seed for reproducibility.
+
+        Returns
+        -------
+        List[pd.DataFrame]
+            List of M complete imputed pandas DataFrames.
+        """
+        check_is_fitted(self, "is_fitted_")
+        target_m = m if m is not None else (self.n_imputations if self.n_imputations > 1 else 5)
+        old_m = self.n_imputations
+        old_seed = self.random_state
+        try:
+            self.n_imputations = target_m
+            if random_state is not None:
+                self.random_state = random_state
+            res = self.transform(X, return_all_imputations=True)
+            return res if isinstance(res, list) else [res]
+        finally:
+            self.n_imputations = old_m
+            self.random_state = old_seed
+
+    def fit_transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Fit pattern mixture model and generate M stochastic multiple imputations."""
+        if random_state is not None:
+            self.random_state = random_state
         self.fit(X)
-        return self.transform(X, return_all_imputations=True)
+        return self.transform_multiple(X, m=m, random_state=random_state)
 
     def get_feature_names_out(self, input_features: Optional[List[str]] = None) -> np.ndarray:
         check_is_fitted(self, "is_fitted_")

@@ -17,8 +17,9 @@ from umbra.imputers.heckman_selection import (
     HeckmanSEWarning,
     WeakInstrumentWarning,
 )
-from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer, rubins_rules
+from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
+from umbra.imputers.rubin_pooler import RubinPooler, RubinsRulesResult, rubins_rules
 
 __all__ = [
     "MARChainedEquationsImputer",
@@ -30,4 +31,6 @@ __all__ = [
     "PatternMixtureImputer",
     "DeepGenerativeMNARImputer",
     "rubins_rules",
+    "RubinPooler",
+    "RubinsRulesResult",
 ]
