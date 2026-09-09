@@ -9,7 +9,7 @@ This roadmap resolves the open econometric, statistical, and benchmarking limita
 - [x] **Phase 1: Heckman Selection Asymptotic SE Correction (Murphy-Topel & FIML)** - Exact analytical two-step standard errors and full-information maximum likelihood estimation.
 - [x] **Phase 2: Ill-Conditioned Design Matrices (Ridge Sandwich SE & VIF Collinearity)** - Sandwich covariance for Ridge fallback and collinearity diagnostics for selection equations.
 - [x] **Phase 3: Multiple Imputation & Rubin Pooling Engine** - Multi-draw stochastic imputation interface and Rubin pooling with Barnard-Rubin small-sample degrees of freedom.
-- [ ] **Phase 4: Cost-Sensitive Risk Routing & Empirical Calibration** - Bayes-optimal decision thresholds under asymmetric loss matrices and Platt/Isotonic score calibration.
+- [x] **Phase 4: Cost-Sensitive Risk Routing & Empirical Calibration** - Bayes-optimal decision thresholds under asymmetric loss matrices and Platt/Isotonic score calibration.
 - [ ] **Phase 5: Observational Real-World Benchmarks & Multivariate Amputation** - Real-world dataset loaders (CPS, NHANES) and Schouten et al. multivariate amputation engine.
 - [ ] **Phase 6: Identifiability & Sensitivity Auditing (Manski Bounds & Audit Certificates)** - Worst-case partial identifiability bounds and machine-verifiable assumption certificates.
 
@@ -90,12 +90,14 @@ Plans:
   2. Diagnostic composite scores are empirically calibrated to represent valid posterior probabilities $P(\text{MNAR} \mid \text{diagnostics})$.
   3. Pluggable decision profiles (`conservative_mnar`, `balanced`, `permissive_mar`) are available with serialization support.
 
-**Plans**: 2 plans
+**Plans**: 2/2 plans executed
 
 Plans:
 
-- [ ] 04-01: Implement cost-sensitive decision engine with custom loss matrices.
-- [ ] 04-02: Implement Platt and Isotonic empirical probability calibration for MNAR risk scores.
+- [x] 04-01-PLAN.md
+- [x] 04-02-PLAN.md
+- [x] 04-01: Implement cost-sensitive decision engine with custom loss matrices.
+- [x] 04-02: Implement Platt and Isotonic empirical probability calibration for MNAR risk scores.
 
 ### Phase 5: Observational Real-World Benchmarks & Multivariate Amputation
 

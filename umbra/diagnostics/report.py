@@ -384,6 +384,9 @@ def diagnose_report(
     alpha: float = 0.05,
     run_sensitivity: bool = True,
     random_state: int = 42,
+    decision_profile: Optional[Union[str, Any]] = None,
+    loss_matrix: Optional[Dict[str, float]] = None,
+    calibrator: Optional[Any] = None,
 ) -> UmbraDiagnosticReport:
     """Run full, multi-tier missingness diagnostics on dataset X.
 
@@ -401,6 +404,12 @@ def diagnose_report(
         Whether to sweep sensitivity grid for variables with evidence consistent with MNAR.
     random_state : int, default=42
         Seed for reproducibility.
+    decision_profile : Optional[Union[str, RouterDecisionProfile]], default=None
+        Decision profile ('balanced', 'conservative_mnar', 'permissive_mar').
+    loss_matrix : Optional[Dict[str, float]], default=None
+        Asymmetric misclassification loss matrix {'c_fn': float, 'c_fa': float}.
+    calibrator : Optional[MNARRiskCalibrator], default=None
+        Calibrator instance for P(MNAR | diagnostics).
 
     Returns
     -------
@@ -463,6 +472,9 @@ def diagnose_report(
             pattern_report=covar_rep,
             shadow_report=s_rep,
             alpha=alpha,
+            decision_profile=decision_profile,
+            loss_matrix=loss_matrix,
+            calibrator=calibrator,
         )
         mnar_reports[col] = m_rep
         recommendations[col] = m_rep.recommended_strategy

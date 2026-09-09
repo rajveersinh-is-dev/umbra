@@ -25,6 +25,14 @@ from umbra.diagnostics.pattern_analysis import (
     compute_cohens_d,
 )
 from umbra.diagnostics.report import UmbraDiagnosticReport
+from umbra.diagnostics.risk_calibrator import (
+    ROUTER_PROFILES,
+    MNARRiskCalibrator,
+    RouterDecisionProfile,
+    compute_bayes_optimal_threshold,
+    compute_expected_losses,
+    get_decision_profile,
+)
 from umbra.diagnostics.shadow_variable_finder import (
     AuxiliaryVariableCandidate,
     AuxiliaryVariableReport,
@@ -52,4 +60,10 @@ __all__ = [
     "DiagnosticSignal",
     "diagnose_dataframe",
     "UmbraDiagnosticReport",
+    "MNARRiskCalibrator",
+    "RouterDecisionProfile",
+    "ROUTER_PROFILES",
+    "compute_bayes_optimal_threshold",
+    "compute_expected_losses",
+    "get_decision_profile",
 ]

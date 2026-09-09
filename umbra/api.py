@@ -19,6 +19,10 @@ from sklearn.utils.validation import check_is_fitted
 
 from umbra.diagnostics.mnar_risk_score import MNARRiskReport, diagnose_dataframe
 from umbra.diagnostics.report import diagnose, diagnose_report
+from umbra.diagnostics.risk_calibrator import (
+    MNARRiskCalibrator,
+    RouterDecisionProfile,
+)
 from umbra.explain import explain_diagnostics
 from umbra.imputers.heckman_selection import HeckmanSelectionImputer
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
@@ -27,7 +31,13 @@ from umbra.sensitivity.grid_analysis import SensitivityReport, run_sensitivity_g
 
 ArrayOrDataFrame = TypeVar("ArrayOrDataFrame", pd.DataFrame, np.ndarray)
 
-__all__ = ["UmbraImputer", "diagnose", "diagnose_report"]
+__all__ = [
+    "UmbraImputer",
+    "diagnose",
+    "diagnose_report",
+    "RouterDecisionProfile",
+    "MNARRiskCalibrator",
+]
 
 
 class UmbraImputer(BaseEstimator, TransformerMixin):
@@ -75,6 +85,9 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         n_bootstrap_se: int = 200,
         random_state: Optional[int] = 42,
         verbose: bool = False,
+        decision_profile: str = "balanced",
+        loss_matrix: Optional[Dict[str, float]] = None,
+        calibrator: Optional[Union[str, Any]] = None,
     ):
         self.strategy = strategy
         self.delta = delta
@@ -84,6 +97,9 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         self.n_bootstrap_se = n_bootstrap_se
         self.random_state = random_state
         self.verbose = verbose
+        self.decision_profile = decision_profile
+        self.loss_matrix = loss_matrix
+        self.calibrator = calibrator
 
     def fit(self, X: Union[pd.DataFrame, np.ndarray], y: Any = None) -> "UmbraImputer":
         """Fit UmbraImputer on data:
@@ -111,6 +127,8 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         self.sensitivity_reports_: Dict[str, SensitivityReport] = {}
         self.imputers_: Dict[str, BaseEstimator] = {}
         self.routing_decisions_: Dict[str, str] = {}
+        self.calibrated_p_mnar_: Dict[str, float] = {}
+        self.routing_expected_losses_: Dict[str, float] = {}
 
         incomplete_cols = [c for c in df.columns if df[c].isna().any()]
         if not incomplete_cols:
@@ -126,8 +144,26 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
                 "Please encode categorical variables (e.g. using OrdinalEncoder, OneHotEncoder, or pd.get_dummies) before imputing."
             )
 
+        # Resolve active calibrator
+        active_calibrator = None
+        if isinstance(self.calibrator, str):
+            active_calibrator = MNARRiskCalibrator(method=self.calibrator)
+        elif self.calibrator is not None:
+            active_calibrator = self.calibrator
+
         # 1. Run empirical diagnostics
-        self.diagnostics_ = diagnose_dataframe(df)
+        self.diagnostics_ = diagnose_dataframe(
+            df,
+            decision_profile=self.decision_profile,
+            loss_matrix=self.loss_matrix,
+            calibrator=active_calibrator,
+        )
+
+        for col, rep in self.diagnostics_.items():
+            if rep.calibrated_p_mnar is not None:
+                self.calibrated_p_mnar_[col] = float(rep.calibrated_p_mnar)
+            if rep.expected_loss is not None:
+                self.routing_expected_losses_[col] = float(rep.expected_loss)
 
         if self.verbose:
             explain_diagnostics(self.diagnostics_)
@@ -378,20 +414,28 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
         """Fit and transform in a single call."""
         return self.fit(X, y).transform(X, return_diagnostics=return_diagnostics)
 
-    def fit_transform_multiple(self, X: Union[pd.DataFrame, np.ndarray]) -> List[pd.DataFrame]:
-        """Fit UmbraImputer and return all M stochastic multiple imputations."""
-        self.fit(X)
+    def transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Generate m complete imputed datasets from the fitted model."""
+        check_is_fitted(self, "is_fitted_")
         df_base = self._to_dataframe(X).copy()
-        n_m = max(1, self.n_imputations)
+        n_m = m if m is not None else self.n_imputations
         if n_m == 1:
             res = self.transform(df_base)
             return [
                 res if isinstance(res, pd.DataFrame) else pd.DataFrame(res, columns=df_base.columns)
             ]
+        seed = random_state if random_state is not None else (self.random_state or 42)
 
         sub_m = {}
         for key, imp in self.imputers_.items():
-            if hasattr(imp, "transform"):
+            if hasattr(imp, "transform_multiple"):
+                sub_m[key] = imp.transform_multiple(df_base, m=n_m, random_state=seed)
+            elif hasattr(imp, "transform"):
                 try:
                     sub_m[key] = imp.transform(df_base, return_all_imputations=True)
                 except Exception:
@@ -416,6 +460,16 @@ class UmbraImputer(BaseEstimator, TransformerMixin):
                         df_i[col] = imp_frame[col]
             imputed_dfs.append(df_i)
         return imputed_dfs
+
+    def fit_transform_multiple(
+        self,
+        X: Union[pd.DataFrame, np.ndarray],
+        y: Any = None,
+        m: Optional[int] = None,
+        random_state: Optional[int] = None,
+    ) -> List[pd.DataFrame]:
+        """Fit UmbraImputer and return all M stochastic multiple imputations."""
+        return self.fit(X, y).transform_multiple(X, m=m, random_state=random_state)
 
     def explain(self) -> None:
         """Print rich diagnostic and sensitivity report to terminal."""

@@ -17,7 +17,7 @@ under plausible departures from MAR.
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,12 @@ from sklearn.linear_model import Ridge
 
 from umbra.diagnostics.mcar_test import LittleMCARResult, littles_mcar_test
 from umbra.diagnostics.pattern_analysis import PatternAnalysisReport, analyze_missingness_patterns
+from umbra.diagnostics.risk_calibrator import (
+    MNARRiskCalibrator,
+    RouterDecisionProfile,
+    compute_expected_losses,
+    get_decision_profile,
+)
 from umbra.diagnostics.shadow_variable_finder import (
     AuxiliaryVariableReport,
     find_shadow_variables,
@@ -123,6 +129,10 @@ class MNARRiskReport:
     shadow_candidate: Optional[str] = None
     domain_heuristic_matched: bool = False
     citation: Optional[str] = None
+    calibrated_p_mnar: Optional[float] = None
+    decision_profile: Optional[str] = None
+    expected_loss: Optional[float] = None
+    loss_matrix: Optional[Dict[str, float]] = None
 
     @property
     def concern_score(self) -> float:
@@ -147,10 +157,20 @@ class MNARRiskReport:
         )
         if not sig_str:
             sig_str = "    * None (Observed data patterns are compatible with MCAR/MAR)"
+        cal_str = ""
+        if self.calibrated_p_mnar is not None:
+            prof_name = self.decision_profile or "balanced"
+            cal_str = (
+                f"  - Calibrated P(MNAR)  : {self.calibrated_p_mnar:.1%} (Profile: {prof_name})\n"
+            )
+            if self.expected_loss is not None:
+                cal_str += f"  - Expected Action Loss: {self.expected_loss:.3f}\n"
+
         return (
             f"============================================================\n"
             f"MNAR Risk Assessment for '{self.target_column}'\n"
             f"  - Evidence Level      : {self.risk_level} (Score: {self.composite_score:.2f})\n"
+            f"{cal_str}"
             f"  - Missing Rate        : {self.missing_rate:.1%}\n"
             f"  - Recommended Action  : {self.recommended_strategy}\n"
             f"  - Candidate Auxiliary : {self.shadow_candidate or 'None'}\n"
@@ -160,7 +180,7 @@ class MNARRiskReport:
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d: Dict[str, Any] = {
             "target_column": self.target_column,
             "risk_level": self.risk_level,
             "composite_score": float(self.composite_score),
@@ -172,6 +192,15 @@ class MNARRiskReport:
             "explanation": self.explanation,
             "signals": [s.to_dict() for s in self.signals],
         }
+        if self.calibrated_p_mnar is not None:
+            d["calibrated_p_mnar"] = float(self.calibrated_p_mnar)
+        if self.decision_profile is not None:
+            d["decision_profile"] = self.decision_profile
+        if self.expected_loss is not None:
+            d["expected_loss"] = float(self.expected_loss)
+        if self.loss_matrix is not None:
+            d["loss_matrix"] = self.loss_matrix
+        return d
 
 
 def _check_domain_heuristics(col_name: str) -> Tuple[bool, Optional[str], Optional[str]]:
@@ -268,6 +297,9 @@ def assess_mnar_risk(
     high_risk_composite_threshold: float = 0.50,
     medium_risk_composite_threshold: float = 0.25,
     tail_risk_threshold: float = 0.25,
+    decision_profile: Optional[Union[str, RouterDecisionProfile]] = None,
+    loss_matrix: Optional[Dict[str, float]] = None,
+    calibrator: Optional[MNARRiskCalibrator] = None,
 ) -> MNARRiskReport:
     """Synthesize empirical data diagnostics into an honest MNAR risk assessment.
 
@@ -284,12 +316,22 @@ def assess_mnar_risk(
     if target_col not in data.columns:
         raise ValueError(f"Target column '{target_col}' not found in data.")
 
+    # Resolve decision profile and loss matrix if provided
+    resolved_profile: Optional[RouterDecisionProfile] = None
+    if decision_profile is not None or loss_matrix is not None:
+        resolved_profile = get_decision_profile(decision_profile, loss_matrix=loss_matrix)
+        high_risk_composite_threshold = resolved_profile.high_risk_threshold
+        medium_risk_composite_threshold = resolved_profile.medium_risk_threshold
+        tail_risk_threshold = resolved_profile.tail_risk_threshold
+
     is_missing = data[target_col].isna()
     n_missing = int(is_missing.sum())
     n_total = len(data)
     missing_rate = float(n_missing / n_total) if n_total > 0 else 0.0
 
     if n_missing == 0:
+        c_fn = resolved_profile.c_fn if resolved_profile else 1.0
+        c_fa = resolved_profile.c_fa if resolved_profile else 1.0
         return MNARRiskReport(
             target_column=target_col,
             risk_level="LOW",
@@ -298,6 +340,10 @@ def assess_mnar_risk(
             signals=[],
             explanation="No missing values observed in this variable.",
             recommended_strategy="none",
+            calibrated_p_mnar=0.0,
+            decision_profile=(resolved_profile.name if resolved_profile else "balanced"),
+            expected_loss=0.0,
+            loss_matrix={"c_fn": c_fn, "c_fa": c_fa},
         )
 
     # 1. Little's MCAR Test signal
@@ -423,8 +469,17 @@ def assess_mnar_risk(
         recommended_strategy = "mar_chained_equations"
     elif tail_triggered and (mcar_rejected or shift_triggered):
         # High tail concentration plus departure from MCAR is evidence consistent with MNAR
-        risk_level = "HIGH"
-        recommended_strategy = "mnar_heckman" if has_shadow else "mnar_pattern_mixture_sensitivity"
+        if composite >= high_risk_composite_threshold:
+            risk_level = "HIGH"
+            recommended_strategy = (
+                "mnar_heckman" if has_shadow else "mnar_pattern_mixture_sensitivity"
+            )
+        elif composite >= medium_risk_composite_threshold:
+            risk_level = "MEDIUM"
+            recommended_strategy = "mnar_pattern_mixture_sensitivity"
+        else:
+            risk_level = "LOW"
+            recommended_strategy = "mar_chained_equations"
     elif shift_triggered or mcar_rejected:
         # Covariates explain missingness; tail dependency is low -> MAR compatible
         if composite >= high_risk_composite_threshold and tail_score >= tail_risk_threshold:
@@ -440,11 +495,29 @@ def assess_mnar_risk(
             recommended_strategy = "mar_chained_equations"
     elif tail_triggered:
         # Self-censoring signal alone — MNAR evidence even without global covariate shifts
-        risk_level = "MEDIUM"
-        recommended_strategy = "mnar_pattern_mixture_sensitivity"
+        if composite >= high_risk_composite_threshold:
+            risk_level = "HIGH"
+            recommended_strategy = (
+                "mnar_heckman" if has_shadow else "mnar_pattern_mixture_sensitivity"
+            )
+        else:
+            risk_level = "MEDIUM"
+            recommended_strategy = "mnar_pattern_mixture_sensitivity"
     else:
         risk_level = "LOW"
         recommended_strategy = "mar_chained_equations"
+
+    # Calibration & Cost-sensitive expected loss evaluation
+    active_calibrator = calibrator if calibrator is not None else MNARRiskCalibrator()
+    calibrated_p = float(active_calibrator.calibrate(composite))
+
+    c_fn = resolved_profile.c_fn if resolved_profile else 1.0
+    c_fa = resolved_profile.c_fa if resolved_profile else 1.0
+    expected_loss_info = compute_expected_losses(calibrated_p, c_fn=c_fn, c_fa=c_fa)
+    is_mar_action = (recommended_strategy == "mar_chained_equations") or (risk_level == "LOW")
+    action_expected_loss = (
+        expected_loss_info["loss_mar"] if is_mar_action else expected_loss_info["loss_mnar"]
+    )
 
     # Add domain context signal as informational annotation
     sig_domain = DiagnosticSignal(
@@ -510,6 +583,10 @@ def assess_mnar_risk(
         shadow_candidate=shadow_name,
         domain_heuristic_matched=domain_match,
         citation=citation,
+        calibrated_p_mnar=calibrated_p,
+        decision_profile=(resolved_profile.name if resolved_profile else "balanced"),
+        expected_loss=float(action_expected_loss),
+        loss_matrix={"c_fn": c_fn, "c_fa": c_fa},
     )
 
 
@@ -519,6 +596,9 @@ def diagnose_dataframe(
     high_risk_composite_threshold: float = 0.50,
     medium_risk_composite_threshold: float = 0.25,
     tail_risk_threshold: float = 0.25,
+    decision_profile: Optional[Union[str, RouterDecisionProfile]] = None,
+    loss_matrix: Optional[Dict[str, float]] = None,
+    calibrator: Optional[MNARRiskCalibrator] = None,
 ) -> Dict[str, MNARRiskReport]:
     """Run full diagnostic screening across all incomplete columns in data."""
     if not isinstance(data, pd.DataFrame):
@@ -546,6 +626,9 @@ def diagnose_dataframe(
             high_risk_composite_threshold=high_risk_composite_threshold,
             medium_risk_composite_threshold=medium_risk_composite_threshold,
             tail_risk_threshold=tail_risk_threshold,
+            decision_profile=decision_profile,
+            loss_matrix=loss_matrix,
+            calibrator=calibrator,
         )
         reports[col] = rep
 
