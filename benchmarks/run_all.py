@@ -13,19 +13,20 @@ Executes:
 6. Regenerates publication-grade `benchmarks/results.md`.
 """
 
-import sys
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Tuple
-
-import pandas as pd
+import sys
+import time
 
 from benchmarks.metrics import MonteCarloSummary
 from benchmarks.performance_scaling import benchmark_runtime_vs_dimension, benchmark_runtime_vs_n
 from benchmarks.router_benchmark import benchmark_auto_router, compare_router_against_baselines
 from benchmarks.simulation_runner import get_standard_imputer_suite, run_monte_carlo_regime
 from umbra import __version__ as umbra_ver
+import pandas as pd
+
+
 
 
 def run_full_benchmark_suite(
@@ -35,6 +36,19 @@ def run_full_benchmark_suite(
     base_seed: int = 42,
     quick: bool = False,
 ) -> Tuple[List[MonteCarloSummary], Any, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Worker function for full benchmark suite.
+    
+    Args:
+        n_replications (int):
+        n_samples (int):
+        missing_rate (float):
+        base_seed (int):
+        quick (bool):
+    
+    Returns:
+        tuple: Result of type tuple
+    
+    """
     print("=" * 70)
     print("UMBRA RIGOROUS EMPIRICAL BENCHMARK SUITE")
     print(f"Software Version: Umbra v{umbra_ver} | Python: {sys.version.split()[0]}")
@@ -141,6 +155,17 @@ def format_markdown_leaderboard(
     scaling_p: pd.DataFrame,
     out_path: Path,
 ):
+    """Format markdown leaderboard.
+    
+    Args:
+        summaries:
+        router_summary:
+        router_vs_baselines:
+        scaling_n:
+        scaling_p:
+        out_path:
+    
+    """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     n_samples = summaries[0].n_samples if summaries else 2500
     n_replications = summaries[0].n_replications if summaries else 20
