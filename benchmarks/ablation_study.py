@@ -12,23 +12,24 @@ routing architecture:
 Outputs results and markdown table to `benchmarks/ablation_results.md`.
 """
 
-import sys
-import time
 from pathlib import Path
 from typing import Dict
-
-import pandas as pd
-
-# Add project root to path
-root_dir = Path(__file__).resolve().parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.insert(0, str(root_dir))
+import sys
+import time
 
 from benchmarks.dgps import generate_simulation_dataset  # noqa: E402
 from umbra.diagnostics.mcar_test import littles_mcar_test  # noqa: E402
 from umbra.diagnostics.mnar_risk_score import assess_mnar_risk  # noqa: E402
 from umbra.diagnostics.pattern_analysis import analyze_missingness_patterns  # noqa: E402
 from umbra.diagnostics.shadow_variable_finder import find_shadow_variables  # noqa: E402
+import pandas as pd
+
+
+# Add project root to path
+root_dir = Path(__file__).resolve().parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
 
 
 def route_full(mcar, patterns, shadow_rep, risk_rep) -> str:
@@ -114,6 +115,17 @@ def run_ablation_study(
     n_samples: int = 1000,
     base_seed: int = 42,
 ) -> pd.DataFrame:
+    """Worker function for ablation study.
+    
+    Args:
+        n_replications (int):
+        n_samples (int):
+        base_seed (int):
+    
+    Returns:
+        The computed result
+    
+    """
     print("=" * 70, flush=True)
     print("UMBRA ABLATION & DIAGNOSTIC SENSITIVITY STUDY", flush=True)
     print(f"Replications per cell: {n_replications} | N={n_samples:,}", flush=True)
@@ -206,6 +218,13 @@ def run_ablation_study(
 
 
 def format_ablation_markdown(df_res: pd.DataFrame, out_path: Path):
+    """Format ablation markdown.
+    
+    Args:
+        df_res:
+        out_path:
+    
+    """
     lines = [
         "# Umbra Diagnostic Architecture Ablation Study",
         "",
