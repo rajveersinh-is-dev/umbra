@@ -54,6 +54,12 @@ class ObservationalBenchmarkResult:
     notes: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
+        """To dict.
+        
+        Returns:
+            dict: Result of type dict
+        
+        """
         return {
             "dataset": self.dataset,
             "method": self.method,
