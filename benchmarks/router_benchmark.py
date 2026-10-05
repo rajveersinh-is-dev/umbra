@@ -536,6 +536,16 @@ def evaluate_held_out_validation(
     def evaluate_regimes(
         reg_list: List[str], seed_offset: int
     ) -> Tuple[float, Tuple[float, float], int]:
+        """Evaluate regimes.
+        
+        Args:
+            reg_list:
+            seed_offset:
+        
+        Returns:
+            tuple: Result of type tuple
+        
+        """
         correct = 0
         total = 0
         for reg in reg_list:
