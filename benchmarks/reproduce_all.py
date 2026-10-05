@@ -23,6 +23,9 @@ from umbra import __version__ as umbra_ver
 
 
 def main():
+    """Entry point — parse arguments and run the main computation.
+    
+    """
     parser = argparse.ArgumentParser(
         description="Reproduce all Umbra benchmarks, leaderboards, and figures."
     )
