@@ -316,9 +316,7 @@ def format_misspecification_markdown(df_res: pd.DataFrame) -> str:
 
 
 def main():
-    """Entry point — parse arguments and run the main computation.
-
-    """
+    """Entry point — parse arguments and run the main computation."""
     parser = argparse.ArgumentParser(description="Run Umbra model misspecification battery.")
     parser.add_argument(
         "--replications", type=int, default=5, help="Number of replications per regime."

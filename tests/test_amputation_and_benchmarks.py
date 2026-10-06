@@ -280,6 +280,7 @@ def test_run_observational_benchmark_smoke() -> None:
     assert np.all(np.isfinite(imputed_rows["cell_mae"].values))
     assert np.all(np.isfinite(df_res["beta_error"].values))
 
+
 def test_ampute_multivariate_additional_coverage() -> None:
     """Verify input validation handles invalid inputs for coverage."""
     rng = np.random.default_rng(42)
@@ -341,6 +342,7 @@ def test_ampute_multivariate_additional_coverage() -> None:
     with pytest.raises(ValueError, match="weights shape"):
         ampute_multivariate(valid_data, prop=0.3, weights=np.zeros((3, 2)))
 
+
 def test_ampute_multivariate_calibrate_and_rng() -> None:
     """Verify extreme probabilities, rng types, std_scores=False and summary."""
     rng = np.random.default_rng(42)
@@ -386,7 +388,9 @@ def test_ampute_multivariate_additional_coverage_2() -> None:
 
     # 2. MNAR default weights when no incomplete variables
     # We pass pattern with all 1s (observed).
-    res_mnar = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
+    res_mnar = ampute_multivariate(
+        valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR"
+    )
     assert res_mnar.weights.shape == (1, 3)
 
     # 3. Fallback binary search if brentq fails
@@ -395,11 +399,7 @@ def test_ampute_multivariate_additional_coverage_2() -> None:
     # We will construct an edge case where target_prop is very close to 0 or 1
     # and bounds expansion triggers.
     res_fallback = ampute_multivariate(
-        valid_data,
-        prop=0.999999,
-        mechanisms="MAR",
-        odds_type="RIGHT",
-        random_state=42
+        valid_data, prop=0.999999, mechanisms="MAR", odds_type="RIGHT", random_state=42
     )
     assert res_fallback.empirical_prop > 0.9
 
@@ -420,8 +420,9 @@ def test_ampute_multivariate_additional_coverage_3() -> None:
     # even after expansion. Let's use mock for reliability to hit those lines.
 
     import unittest.mock as mock
+
     with mock.patch("umbra.benchmark.amputation.brentq") as mock_brentq:
-        mock_brentq.side_effect = RuntimeError("Mock brentq error")
+        mock_brentq.side_effect = ValueError("Mock brentq error")
         scores = np.array([1.0, 2.0, 3.0])
         probs, b = _calibrate_logit_shift(scores, 0.99, "RIGHT")
         assert len(probs) == 3
@@ -441,11 +442,14 @@ def test_ampute_multivariate_additional_coverage_4() -> None:
     # Let's try target_prop = 1e-15 and 1 - 1e-15
     scores = np.array([-100.0, 100.0])
     probs, b = _calibrate_logit_shift(scores, 1e-15, "RIGHT")
+    assert len(probs) == 2
     probs2, b2 = _calibrate_logit_shift(scores, 1.0 - 1e-15, "RIGHT")
+    assert len(probs2) == 2
 
     # hit the invalid odds_type fallback `else: arg = centered`
     # The public API validates odds_type, but _calibrate_logit_shift might be called internally
     probs3, b3 = _calibrate_logit_shift(scores, 0.5, "UNKNOWN")
+    assert len(probs3) == 2
 
 
 def test_ampute_multivariate_additional_coverage_5() -> None:
@@ -454,17 +458,17 @@ def test_ampute_multivariate_additional_coverage_5() -> None:
 
     # To hit 181 (MNAR with all missing in pattern, i.e., incomp_mask is all False which means all are observed)
     # Actually pat == 0 is incomplete. np.any(incomp_mask) is False if ALL are 1 (observed).
-    ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
+    res_1 = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
+    assert res_1 is not None
 
     # To hit 186 (MAR with all missing in pattern? wait, MAR with ALL incomplete?)
     # pat == 1 is observed. If ALL are incomplete (0), obs_mask is all False.
-    ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[0, 0, 0]]), mechanisms="MAR")
+    res_2 = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[0, 0, 0]]), mechanisms="MAR")
+    assert res_2 is not None
 
     # To hit 370 (pattern with no samples assigned)
     # We provide freq = [1.0, 0.0] to force the second pattern to have no assignments.
-    ampute_multivariate(
-        valid_data,
-        prop=0.3,
-        patterns=np.array([[0, 1, 1], [1, 0, 1]]),
-        freq=[1.0, 0.0]
+    res_3 = ampute_multivariate(
+        valid_data, prop=0.3, patterns=np.array([[0, 1, 1], [1, 0, 1]]), freq=[1.0, 0.0]
     )
+    assert res_3 is not None

@@ -31,7 +31,6 @@ if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
 
-
 def route_full(mcar, patterns, shadow_rep, risk_rep) -> str:
     """Full Umbra routing decision."""
     has_instrument = (
