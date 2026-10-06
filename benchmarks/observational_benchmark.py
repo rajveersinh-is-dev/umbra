@@ -55,10 +55,10 @@ class ObservationalBenchmarkResult:
 
     def to_dict(self) -> Dict[str, Any]:
         """To dict.
-        
+
         Returns:
             dict: Result of type dict
-        
+
         """
         return {
             "dataset": self.dataset,

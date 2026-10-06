@@ -20,21 +20,20 @@ Measures:
 - Detection of Failure Boundaries
 """
 
+import argparse
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
-import argparse
 
-from benchmarks.dgps import expit
+import numpy as np
+import pandas as pd
 from scipy import stats
 from sklearn.linear_model import LinearRegression
+
+from benchmarks.dgps import expit
 from umbra.api import UmbraImputer
 from umbra.imputers.heckman_selection import HeckmanSelectionImputer
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
-import numpy as np
-import pandas as pd
-
-
 
 
 @dataclass
@@ -317,9 +316,7 @@ def format_misspecification_markdown(df_res: pd.DataFrame) -> str:
 
 
 def main():
-    """Entry point — parse arguments and run the main computation.
-    
-    """
+    """Entry point — parse arguments and run the main computation."""
     parser = argparse.ArgumentParser(description="Run Umbra model misspecification battery.")
     parser.add_argument(
         "--replications", type=int, default=5, help="Number of replications per regime."

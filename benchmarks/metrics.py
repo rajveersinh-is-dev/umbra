@@ -16,7 +16,6 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 
-
 @dataclass
 class ReplicationResult:
     """Metrics collected from a single Monte Carlo replication."""
@@ -70,10 +69,10 @@ class MonteCarloSummary:
 
     def to_dict(self) -> Dict[str, Any]:
         """To dict.
-        
+
         Returns:
             dict: Result of type dict
-        
+
         """
         return {
             "method": self.method_name,
