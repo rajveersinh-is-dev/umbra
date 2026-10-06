@@ -458,12 +458,16 @@ def test_ampute_multivariate_additional_coverage_5() -> None:
 
     # To hit 181 (MNAR with all missing in pattern, i.e., incomp_mask is all False which means all are observed)
     # Actually pat == 0 is incomplete. np.any(incomp_mask) is False if ALL are 1 (observed).
-    res_1 = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
+    res_1 = ampute_multivariate(
+        valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR"
+    )
     assert res_1 is not None
 
     # To hit 186 (MAR with all missing in pattern? wait, MAR with ALL incomplete?)
     # pat == 1 is observed. If ALL are incomplete (0), obs_mask is all False.
-    res_2 = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[0, 0, 0]]), mechanisms="MAR")
+    res_2 = ampute_multivariate(
+        valid_data, prop=0.3, patterns=np.array([[0, 0, 0]]), mechanisms="MAR"
+    )
     assert res_2 is not None
 
     # To hit 370 (pattern with no samples assigned)
