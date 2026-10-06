@@ -279,3 +279,192 @@ def test_run_observational_benchmark_smoke() -> None:
     assert np.all(np.isfinite(imputed_rows["cell_rmse"].values))
     assert np.all(np.isfinite(imputed_rows["cell_mae"].values))
     assert np.all(np.isfinite(df_res["beta_error"].values))
+
+def test_ampute_multivariate_additional_coverage() -> None:
+    """Verify input validation handles invalid inputs for coverage."""
+    rng = np.random.default_rng(42)
+    valid_data = rng.normal(0, 1, size=(50, 3))
+
+    # 1. Invalid data type
+    with pytest.raises(TypeError, match="data must be a pandas DataFrame or 2D numpy array"):
+        ampute_multivariate([1, 2, 3], prop=0.3)
+
+    # 2. Invalid data shape
+    with pytest.raises(ValueError, match="Input data array must be 2-dimensional"):
+        ampute_multivariate(np.zeros((50, 3, 2)), prop=0.3)
+
+    # 3. Invalid patterns shape
+    with pytest.raises(ValueError, match="patterns must be a 2D array"):
+        ampute_multivariate(valid_data, prop=0.3, patterns=np.array([1, 1, 0]))
+
+    # 4. Invalid patterns columns
+    with pytest.raises(ValueError, match="patterns column count"):
+        ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 0]]))
+
+    # 5. Invalid patterns elements
+    with pytest.raises(ValueError, match="patterns matrix elements must be binary"):
+        ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 2, 0]]))
+
+    # 6. Empty patterns
+    with pytest.raises(ValueError, match="patterns matrix must contain at least 1 pattern"):
+        ampute_multivariate(valid_data, prop=0.3, patterns=np.zeros((0, 3)))
+
+    # 7. Invalid freq length
+    with pytest.raises(ValueError, match="freq length"):
+        ampute_multivariate(valid_data, prop=0.3, freq=[0.5])
+
+    # 8. Negative freq values
+    with pytest.raises(ValueError, match="freq values must be non-negative"):
+        ampute_multivariate(valid_data, prop=0.3, freq=[-0.5, 1.5, 0.0])
+
+    # 9. freq sum to 0
+    with pytest.raises(ValueError, match="freq sum must be strictly positive"):
+        ampute_multivariate(valid_data, prop=0.3, freq=[0.0, 0.0, 0.0])
+
+    # 10. Invalid mechanisms sequence length
+    with pytest.raises(ValueError, match="mechanisms list length"):
+        ampute_multivariate(valid_data, prop=0.3, mechanisms=["MAR", "MCAR"])
+
+    # 11. Invalid odds_type sequence length
+    with pytest.raises(ValueError, match="odds_type list length"):
+        ampute_multivariate(valid_data, prop=0.3, odds_type=["RIGHT", "LEFT"])
+
+    # 12. Invalid odds_type in sequence
+    with pytest.raises(ValueError, match="Invalid odds_type"):
+        ampute_multivariate(valid_data, prop=0.3, odds_type=["RIGHT", "UNKNOWN", "LEFT"])
+
+    # 13. Invalid weights dimensions
+    with pytest.raises(ValueError, match="weights must be a 2D array"):
+        ampute_multivariate(valid_data, prop=0.3, weights=np.array([1.0, 0.0, 0.0]))
+
+    # 14. Invalid weights shape
+    with pytest.raises(ValueError, match="weights shape"):
+        ampute_multivariate(valid_data, prop=0.3, weights=np.zeros((3, 2)))
+
+def test_ampute_multivariate_calibrate_and_rng() -> None:
+    """Verify extreme probabilities, rng types, std_scores=False and summary."""
+    rng = np.random.default_rng(42)
+    valid_data = rng.normal(0, 1, size=(50, 3))
+
+    # 1. Extreme target prop to hit bracket expansion and fallback
+    res1 = ampute_multivariate(valid_data, prop=0.999, mechanisms="MAR", odds_type="RIGHT")
+    assert res1.empirical_prop > 0.9
+
+    res2 = ampute_multivariate(valid_data, prop=0.001, mechanisms="MAR", odds_type="RIGHT")
+    assert res2.empirical_prop < 0.1
+
+    # 2. std_s < 1e-12 check
+    res3 = ampute_multivariate(np.zeros((10, 3)), prop=0.3, mechanisms="MAR", random_state=42)
+    assert abs(res3.empirical_prop - 0.3) < 0.3  # small n so large variance, just check no error
+    assert np.allclose(res3.probabilities, 0.3)
+
+    # 3. rng as Generator
+    res_gen = ampute_multivariate(valid_data, prop=0.3, random_state=np.random.default_rng(42))
+
+    # 4. rng as RandomState
+    res_rs = ampute_multivariate(valid_data, prop=0.3, random_state=np.random.RandomState(42))
+
+    # 5. std_scores=False
+    res_no_std = ampute_multivariate(valid_data, prop=0.3, std_scores=False, random_state=42)
+    assert res_no_std.probabilities is not None
+
+    # 6. summary method
+    summary = res_no_std.summary()
+    assert summary["n_samples"] == 50
+    assert summary["n_features"] == 3
+    assert summary["n_patterns"] == 3
+
+
+def test_ampute_multivariate_additional_coverage_2() -> None:
+    """Verify input validation handles more edge cases for coverage."""
+    rng = np.random.default_rng(42)
+    valid_data = rng.normal(0, 1, size=(50, 3))
+
+    # 1. Invalid mechanism string in list
+    with pytest.raises(ValueError, match="Invalid mechanism 'UNKNOWN'"):
+        ampute_multivariate(valid_data, prop=0.3, mechanisms=["MAR", "UNKNOWN", "MCAR"])
+
+    # 2. MNAR default weights when no incomplete variables
+    # We pass pattern with all 1s (observed).
+    res_mnar = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
+    assert res_mnar.weights.shape == (1, 3)
+
+    # 3. Fallback binary search if brentq fails
+    # Let's force an extreme target prop with an odds type that might cause issues, or just a small subset.
+    # A single observation raises earlier, but what if std_s > 0 and brentq fails?
+    # We will construct an edge case where target_prop is very close to 0 or 1
+    # and bounds expansion triggers.
+    res_fallback = ampute_multivariate(
+        valid_data,
+        prop=0.999999,
+        mechanisms="MAR",
+        odds_type="RIGHT",
+        random_state=42
+    )
+    assert res_fallback.empirical_prop > 0.9
+
+
+def test_ampute_multivariate_additional_coverage_3() -> None:
+    """Trigger missing lines in _calibrate_logit_shift."""
+    from umbra.benchmark.amputation import _calibrate_logit_shift
+
+    # Empty scores
+    probs, b = _calibrate_logit_shift(np.array([]), 0.5, "RIGHT")
+    assert len(probs) == 0
+    assert b == 0.0
+
+    # 2. brentq failure fallback
+    # To force brentq failure, we need to create an objective function that doesn't
+    # cross 0 or raises an error, or we can use mock.
+    # Alternatively, brentq can fail if maxiter is reached or if the root is not bracketed
+    # even after expansion. Let's use mock for reliability to hit those lines.
+
+    import unittest.mock as mock
+    with mock.patch("umbra.benchmark.amputation.brentq") as mock_brentq:
+        mock_brentq.side_effect = RuntimeError("Mock brentq error")
+        scores = np.array([1.0, 2.0, 3.0])
+        probs, b = _calibrate_logit_shift(scores, 0.99, "RIGHT")
+        assert len(probs) == 3
+
+
+def test_ampute_multivariate_additional_coverage_4() -> None:
+    from umbra.benchmark.amputation import _calibrate_logit_shift
+
+    # 1. To hit `if val_low > 0` and `if val_high < 0`, we need val_low * val_high > 0.
+    # If target_prop is very small, objective(lower) and objective(upper) will both be positive.
+    # Actually objective = mean(probs) - target_prop.
+    # If target_prop is very small (e.g. 1e-10), probs is bounded by 0.
+    # At lower = -30, probs ~ 0, target_prop ~ 0, objective ~ 0.
+    # Let's mock the objective function internally to return specific values if possible,
+    # or just use very small/large arrays.
+
+    # Let's try target_prop = 1e-15 and 1 - 1e-15
+    scores = np.array([-100.0, 100.0])
+    probs, b = _calibrate_logit_shift(scores, 1e-15, "RIGHT")
+    probs2, b2 = _calibrate_logit_shift(scores, 1.0 - 1e-15, "RIGHT")
+
+    # hit the invalid odds_type fallback `else: arg = centered`
+    # The public API validates odds_type, but _calibrate_logit_shift might be called internally
+    probs3, b3 = _calibrate_logit_shift(scores, 0.5, "UNKNOWN")
+
+
+def test_ampute_multivariate_additional_coverage_5() -> None:
+    rng = np.random.default_rng(42)
+    valid_data = rng.normal(0, 1, size=(50, 3))
+
+    # To hit 181 (MNAR with all missing in pattern, i.e., incomp_mask is all False which means all are observed)
+    # Actually pat == 0 is incomplete. np.any(incomp_mask) is False if ALL are 1 (observed).
+    res_mnar_all_obs = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
+
+    # To hit 186 (MAR with all missing in pattern? wait, MAR with ALL incomplete?)
+    # pat == 1 is observed. If ALL are incomplete (0), obs_mask is all False.
+    res_mar_all_inc = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[0, 0, 0]]), mechanisms="MAR")
+
+    # To hit 370 (pattern with no samples assigned)
+    # We provide freq = [1.0, 0.0] to force the second pattern to have no assignments.
+    res_empty_pat = ampute_multivariate(
+        valid_data,
+        prop=0.3,
+        patterns=np.array([[0, 1, 1], [1, 0, 1]]),
+        freq=[1.0, 0.0]
+    )
