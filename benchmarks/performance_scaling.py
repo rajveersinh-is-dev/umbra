@@ -8,17 +8,16 @@ Benchmarks computation time as a function of:
 4. Imputation method (MICE PMM, MICE Ridge, Heckman, Pattern Mixture, Umbra Auto)
 """
 
-from typing import List, Optional
 import time
+from typing import List, Optional
+
+import numpy as np
+import pandas as pd
 
 from umbra.api import UmbraImputer
 from umbra.imputers.heckman_selection import HeckmanSelectionImputer
 from umbra.imputers.mar_chained_equations import MARChainedEquationsImputer
 from umbra.imputers.pattern_mixture import PatternMixtureImputer
-import numpy as np
-import pandas as pd
-
-
 
 
 def benchmark_runtime_vs_n(

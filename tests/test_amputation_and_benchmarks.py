@@ -359,10 +359,10 @@ def test_ampute_multivariate_calibrate_and_rng() -> None:
     assert np.allclose(res3.probabilities, 0.3)
 
     # 3. rng as Generator
-    res_gen = ampute_multivariate(valid_data, prop=0.3, random_state=np.random.default_rng(42))
+    ampute_multivariate(valid_data, prop=0.3, random_state=np.random.default_rng(42))
 
     # 4. rng as RandomState
-    res_rs = ampute_multivariate(valid_data, prop=0.3, random_state=np.random.RandomState(42))
+    ampute_multivariate(valid_data, prop=0.3, random_state=np.random.RandomState(42))
 
     # 5. std_scores=False
     res_no_std = ampute_multivariate(valid_data, prop=0.3, std_scores=False, random_state=42)
@@ -454,15 +454,15 @@ def test_ampute_multivariate_additional_coverage_5() -> None:
 
     # To hit 181 (MNAR with all missing in pattern, i.e., incomp_mask is all False which means all are observed)
     # Actually pat == 0 is incomplete. np.any(incomp_mask) is False if ALL are 1 (observed).
-    res_mnar_all_obs = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
+    ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[1, 1, 1]]), mechanisms="MNAR")
 
     # To hit 186 (MAR with all missing in pattern? wait, MAR with ALL incomplete?)
     # pat == 1 is observed. If ALL are incomplete (0), obs_mask is all False.
-    res_mar_all_inc = ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[0, 0, 0]]), mechanisms="MAR")
+    ampute_multivariate(valid_data, prop=0.3, patterns=np.array([[0, 0, 0]]), mechanisms="MAR")
 
     # To hit 370 (pattern with no samples assigned)
     # We provide freq = [1.0, 0.0] to force the second pattern to have no assignments.
-    res_empty_pat = ampute_multivariate(
+    ampute_multivariate(
         valid_data,
         prop=0.3,
         patterns=np.array([[0, 1, 1], [1, 0, 1]]),

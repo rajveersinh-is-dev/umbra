@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 
 
-
 def expit(x: np.ndarray) -> np.ndarray:
     """Numerically stable logistic sigmoid function."""
     return np.where(x >= 0, 1.0 / (1.0 + np.exp(-x)), np.exp(x) / (1.0 + np.exp(x)))
